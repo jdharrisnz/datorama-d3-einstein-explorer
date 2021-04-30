@@ -987,7 +987,7 @@ var emiExplorer = {
 				'type': 'checkbox',
 				'id': 'botRestriction',
 				'displayName': 'Bots to Display',
-				'options': botList.bots.map(x => { return { 'id': x.id, 'label': x.name + ' (ID ' + x.id + ')', 'defaultValue': prefs?.restrictToBots?.includes(x.id) ?? true }; })
+				'options': botList.bots.map(x => { return { 'id': x.id, 'label': x.name + ' (ID ' + x.id + ')', 'defaultValue': prefs?.restrictToBots?.includes(x.id) || prefs?.restrictToBots?.length === 0 ? true : false }; })
 			});
 				if (designSettings.initialView != 'botSelect') {
 					settings.push({
