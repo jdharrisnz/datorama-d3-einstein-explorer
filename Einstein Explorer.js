@@ -75,7 +75,7 @@ var emiExplorer = {
 					.data(botList.bots.filter(x => {
 						var restrictedBots = Object.entries(designSettings).filter(x => x[0].startsWith('botRestriction') && x[1] === true).map(x => x[0].split('_')[1]);
 						return restrictedBots.includes(String(x.id)) && x.status == 'DONE' && x.hasInsights;
-					}).sort((a, b) => d3.descending(a.updatedFor, b.updatedFor)))
+					}))
 					.join('div')
 						.attr('id', d => 'bot-' + d.id)
 						.attr('class', 'bot')
@@ -191,6 +191,25 @@ var emiExplorer = {
 			loader.transition().style('opacity', 1);
 		}
 
+		botResult.insights = botResult.insights.filter(x => {
+			if (x.analysisType == 'KPI') {
+				return true;
+			}
+			else if (x.analysisType == 'WIA') {
+				if (x.data.numeratorValue === 0 && x.comparedData.numeratorValue === 0 && x.data.denominatorValue === 0 && x.comparedData.denominatorValue === 0) {
+					return false;
+				}
+				else {
+					return true;
+				}
+			}
+			else {
+				return false;
+			}
+		});
+
+		botResult.insightsBotResultConfig.analysisConfigs = botResult.insightsBotResultConfig.analysisConfigs.filter(x => botResult.insights.find(y => y.analysisType == x.analysisType) && botResult.insights.find(y => y.analysisSubType == x.analysisSubType));
+
 		// Function for populating the insights list
 			// Create the header
 				var insightsHeader = mainView.insert('div', '*')
@@ -199,7 +218,7 @@ var emiExplorer = {
 					.style('opacity', 0);
 
 				// Create the exit button
-					if (designSettings?.botLocked_0 !== true) {
+					if (designSettings.botLocked_0 !== true) {
 						insightsHeader.append('svg')
 							.attr('id', 'headerExit')
 							.attr('viewBox', '-3 -3 11 16')
@@ -450,22 +469,7 @@ var emiExplorer = {
 					.text('Insights are numbered by significance.');
 
 				var insights = mainContent.selectAll('div.insight')
-				.data(botResult.insights.filter(x => {
-					if (x.analysisType == 'KPI') {
-						return true;
-					}
-					else if (x.analysisType == 'WIA') {
-						if (x.data.numeratorValue === 0 && x.comparedData.numeratorValue === 0 && x.data.denominatorValue === 0 && x.comparedData.denominatorValue === 0) {
-							return false;
-						}
-						else {
-							return true;
-						}
-					}
-					else {
-						return false;
-					}
-				}))
+				.data(botResult.insights)
 				.join('div')
 					.attr('class', d => 'insight ' + d.analysisType.toLowerCase())
 					.style('opacity', 0);
@@ -969,6 +973,7 @@ var emiExplorer = {
 		// Get the bot list, then set settings according to the data
 			self.getBotList().then(x => {
 				botList = x;
+				botList.bots.sort((a, b) => a.name.localeCompare(b.name));
 				settings = settings.concat([
 					{ 'type': 'title',
 						'displayName': 'Explorer Configuration' },
@@ -976,58 +981,47 @@ var emiExplorer = {
 						'id': 'initialView',
 						'displayName': 'Initial View',
 						'options': [{ 'id': 'botSelect', 'label': 'Bot Selection'}].concat(botList.bots.map(x => { return { 'id': x.id, 'label': 'Insights for ' + x.name + ' (ID ' + x.id + ')' }; })),
-						'defaultValue': prefs?.loadDefaultBot?.botId ?? 'botSelect' }
-				]);
-				self.setDesignSettings(settings);
-
-		// Get the settings, then set options based on selection and set visualisation colour options
-				return self.getDesignSettings();
-			}).then(designSettings => {
-			settings.push({
-				'type': 'checkbox',
-				'id': 'botRestriction',
-				'displayName': 'Bots to Display',
-				'options': botList.bots.map(x => { return { 'id': x.id, 'label': x.name + ' (ID ' + x.id + ')', 'defaultValue': prefs?.restrictToBots?.includes(x.id) || prefs?.restrictToBots?.length === 0 || JSON.stringify(prefs) === '{}' ? true : false }; })
-			});
-				if (designSettings.initialView != 'botSelect') {
-					settings.push({
-						'type': 'checkbox',
-						'id': 'botLocked',
-						'displayName': 'Lock to this Bot',
-						'description': 'If checked, there will be no back button in the insights list, which allows users to return to bot selection.',
-						'options': [{ 'id': 0, 'label': 'Locked', 'defaultValue': true }]
-					});
-				}
-				settings = settings.concat([
+						'defaultValue': prefs?.loadDefaultBot?.botId ?? 'botSelect' },
+					{ 'type': 'checkbox',
+					  'id': 'botRestriction',
+					  'displayName': 'Bots to Display',
+					  'options': botList.bots.map(x => { return { 'id': x.id, 'label': x.name + ' (ID ' + x.id + ')', 'defaultValue': prefs?.restrictToBots?.includes(x.id) || prefs?.restrictToBots?.length === 0 || JSON.stringify(prefs) === '{}' ? true : false }; })},
+					{ 'type': 'checkbox',
+					  'id': 'botLocked',
+					  'displayName': 'Lock to this Bot',
+					  'description': 'If checked, there will be no back button in the insights list, which allows users to return to bot selection.',
+					  'options': [{ 'id': 0, 'label': 'Locked', 'defaultValue': false }]},
 					{ 'type': 'separator' },
 					{ 'type': 'title',
-						'displayName': 'Visualisation Colours' },
+					  'displayName': 'Visualisation Colours' },
 					{ 'type': 'colorPicker',
-						'id': 'foregroundDimension',
-						'displayName': 'Foreground Dimension',
-						'defaultValue': '#2848c6' },
+					  'id': 'foregroundDimension',
+					  'displayName': 'Foreground Dimension',
+					  'defaultValue': '#2848c6' },
 					{ 'type': 'colorPicker',
-						'id': 'backgroundDimension',
-						'displayName': 'Background Dimension',
-						'defaultValue': '#eff1ff' },
+					  'id': 'backgroundDimension',
+					  'displayName': 'Background Dimension',
+					  'defaultValue': '#eff1ff' },
 					{ 'type': 'colorPicker',
-						'id': 'foregroundText',
-						'displayName': 'Foregroud Text',
-						'defaultValue': '#2747c6' },
+					  'id': 'foregroundText',
+					  'displayName': 'Foregroud Text',
+					  'defaultValue': '#2747c6' },
 					{ 'type': 'colorPicker',
-						'id': 'backgroundText',
-						'displayName': 'Background Text',
-						'defaultValue': '#666fb7' },
+					  'id': 'backgroundText',
+					  'displayName': 'Background Text',
+					  'defaultValue': '#666fb7' },
 					{ 'type': 'colorPicker',
-						'id': 'foregroundTextContrast',
-						'displayName': 'Foregroud Text (Contrast)',
-						'description': 'Changes the colour of foreground text when it\'s laid over a foreground dimension.',
-						'defaultValue': '#ffffff' }
+					  'id': 'foregroundTextContrast',
+					  'displayName': 'Foregroud Text (Contrast)',
+					  'description': 'Changes the colour of foreground text when it\'s laid over a foreground dimension.',
+					  'defaultValue': '#ffffff' }
 				]);
 				self.setDesignSettings(settings);
 
-		// Get the applicable bot results
-				if (designSettings?.botLocked_0 !== true) {
+		// Get the settings, then get bot results
+				return self.getDesignSettings();
+			}).then(designSettings => {
+				if (designSettings.botLocked_0 !== true || designSettings.initialView == 'botSelect') {
 					return Promise.all(botList.bots.map(x => self.getBotResults(x.id)));
 				}
 				else {
