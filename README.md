@@ -6,7 +6,7 @@ This custom widget loads bots in the workspace and visualises their insights. It
 ![Preview image](image.png)
 
 ## Style and Script Dependencies
-Add `emiExplorer.initialize();` to the JS section, and add the below dependencies to the second tab of the Custom Widget Editor.
+Add `emiExplorer.initialize();` to the JS section of the Custom Widget Editor, and add the below links to the dependencies area (second button at the top left of the Custom Widget Editor).
 
 Script dependencies (must be loaded in this order):
 1. `https://d3js.org/d3.v5.min.js`
@@ -34,7 +34,7 @@ These include options for
 * **Add a background image:** If you don't have a page background image, you can add one directly to the widget to take advantage of the content view's background gaussian blur for a nice effect. Scroll right to the bottom of the widget design panel, open the background group, tick the background image box, and either upload an image or use one from Unsplash. If you add a background image directly to the widget, you'll also need to
   * Add a 10px corner radius to the widget, again in the background design options.
   * Add this to the Advanced Custom CSS of the widget, so that the content truly reaches the edges:
-```
+```css
 .widget-wrapper {
   padding-left: 0 !important;
   padding-right: 0 !important;
