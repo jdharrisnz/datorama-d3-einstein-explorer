@@ -1,938 +1,979 @@
 var emiExplorer = {
-	'getBotList': function() {
-		// Wrapper function for getting the bot list
-			return new Promise((resolve, reject) => {
-				DA.api.EMI.getBotsSummary({ cb: (err, botList) => {
-					resolve(botList);
-				}});
-			});
-	},
-	'getBotResults': function(id) {
-		// Wrapper function for getting the bot results
-			return new Promise((resolve, reject) => {
-				DA.api.EMI.getInsightsByBotId({ 'botId': id, cb: (err, botResults) => {
-					resolve(botResults);
-				}});
-			});
-	},
-	'setDesignSettings': function(settings) {
-		// Wrapper function for setting design settings
-			DA.widget.customDesignSettings.set(settings);
-	},
-	'getDesignSettings': function() {
+	'initialize': function() {
+		// Wrapper function for getting bot list
+			function getBotList() {
+				return new Promise((resolve, reject) => {
+					DA.api.EMI.getBotsSummary({ cb: (err, botList) => {
+						resolve(botList);
+					}});
+				});
+			}
+
+		// Wrapper function for getting bot results
+			function getBotResults(id) {
+				return new Promise((resolve, reject) => {
+					DA.api.EMI.getInsightsByBotId({ 'botId': id, cb: (err, botResults) => {
+						resolve(botResults);
+					}});
+				});
+			}
+
+		// Wrapper function for setting design options
+			function setDesignOptions(options) {
+				DA.widget.customDesignSettings.set(options);
+			}
+
 		// Wrapper function for getting design settings
-			return new Promise((resolve, reject) => {
-				DA.widget.customDesignSettings.get({ cb: (err, params) => {
-					resolve(params);
-				}});
-			});
-	},
-	'getFieldDetails': function(field) {
+			function getDesignSettings() {
+				return new Promise((resolve, reject) => {
+					DA.widget.customDesignSettings.get({ cb: (err, params) => {
+						resolve(params);
+					}});
+				});
+			}
+
 		// Wrapper function for getting field details
-			return new Promise((resolve, reject) => {
-				DA.query.getFieldDetails({ 'systemName': field, cb: (err, data) => {
-					resolve(data);
-				}});
-			});
-	},
-	'getFormattedValue': function(name, value) {
+			function getFieldDetails(field) {
+				return new Promise((resolve, reject) => {
+					DA.query.getFieldDetails({ 'systemName': field, cb: (err, data) => {
+						resolve(data);
+					}});
+				});
+			}
+
 		// Wrapper function for getting formatted values
-			return new Promise((resolve, reject) => {
-				DA.query.getFormattedValue({ 'systemName': name, 'value': value, cb: (err, data) => {
-					resolve(data);
-				}});
-			});
-	},
-	'sortInsightTypes': function(name) {
-		// Function for sorting insight types
-			switch(name) {
-				case 'KPI':
-					return 0;
-				case 'DAY_OVER_DAY':
-					return 1;
-				case 'WEEK_OVER_WEEK':
-					return 2;
-				case 'MONTH_OVER_MONTH':
-					return 3;
-				case 'QUARTER_OVER_QUARTER':
-					return 4;
-				default:
-					return 5;
+			function getFormattedValue(name, value) {
+				return new Promise((resolve, reject) => {
+					DA.query.getFormattedValue({ 'systemName': name, 'value': value, cb: (err, data) => {
+						resolve(data);
+					}});
+				});
 			}
-	},
-	'createBots': function(botList, botResults) {
-		loaded = true;
-		var self = this;
 
-		// Join the bot list with results
-			botList.bots.forEach((bot, i) => {
-				bot.botResult = botResults[i];
-			});
-
-		// Function for creating the bot list
-			// Create bot divs
-				bots = mainContent.selectAll('div')
-					.data(botList.bots.filter(x => {
-						var restrictedBots = Object.entries(designSettings).filter(x => x[0].startsWith('botRestriction') && x[1] === true).map(x => x[0].split('_')[1]);
-						return restrictedBots.includes(String(x.id)) && x.status == 'DONE' && x.hasInsights;
-					}))
-					.join('div')
-						.attr('id', d => 'bot-' + d.id)
-						.attr('class', 'bot')
-						.on('click', d => {
-							bots.transition()
-							.style('opacity', 0)
-							.end().then(() => {
-								bots.style('display', 'none');
-								self.createInsights(d.botResult);
-							});
-						})
-						.style('opacity', 0);
-
-				// Create names and separation lines
-					var botName = bots.append('div')
-						.attr('class', 'botName');
-
-					botName.append('span')
-						.on('mouseenter', d => { tooltip.style('display', null).text(d.name); })
-						.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
-						.on('mouseleave', () => { tooltip.style('display', 'none'); })
-						.text(d => d.name);
-
-					botName.append('hr');
-
-				// Create metric name labels and trend arrows
-					var botMetric = bots.append('div')
-						.attr('class', 'metricName');
-
-					botMetric.append('span')
-						.attr('class', 'botLabel')
-						.text('KPI: ');
-
-					botMetric.append('span')
-						.attr('class', 'botDesc')
-						.on('mouseenter', (d, i, nodes) => { tooltip.style('display', null).text(d3.select(nodes[i]).text()); })
-						.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
-						.on('mouseleave', () => { tooltip.style('display', 'none'); })
-						.text(d => designSettings[d.metricName]);
-
-					botMetric.append('svg')
-						.attr('class', 'trendArrow')
-						.attr('viewBox', '-0.5 -0.5 11 11')
-						.attr('preserveAspectRatio', 'xMidYMid meet')
-						.append('path')
-							.attr('transform', d => {
-								switch(d.expectedIncreasingTrend) {
-									case true:
-										return 'rotate(-45)';
-									case false:
-										return 'rotate(45)';
-								}
-							})
-							.attr('transform-origin', 'center center')
-							.attr('d', 'M 0 5 h 10 M 7 2 L 10 5 L 7 8');
-
-				// Create type labels
-					var botType = bots.append('div')
-						.attr('class', 'botType');
-
-					botType.append('span')
-						.attr('class', 'botLabel')
-						.text('Types: ');
-
-					botType.append('span')
-						.attr('class', 'botDesc')
-						.on('mouseenter', (d, i, nodes) => { tooltip.style('display', null).text(d3.select(nodes[i]).text()); })
-						.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
-						.on('mouseleave', () => { tooltip.style('display', 'none'); })
-						.text(d => {
-							return d.analysisConfigs.map(x => {
-								return x.analysisType == 'KPI' ? x.analysisType : x.analysisSubType;
-							}).sort((a, b) => self.sortInsightTypes(a) - self.sortInsightTypes(b)).map(x => designSettings[x]).join(', ');
-						});
-
-				// Create date labels
-					var botDates = bots.append('div')
-						.attr('class', 'botDates');
-
-					botDates.append('span')
-						.attr('class', 'botLabel')
-						.text('Dates: ');
-
-					botDates.append('span')
-						.attr('class', 'botText')
-						.text(d => {
-							var startDate = d3.min(d.analysisConfigs, x => new Date(x.date.startDate));
-							var endDate = d3.max(d.analysisConfigs, x => new Date(x.date.endDate));
-							return self.formatDate(startDate) + self.enDash() + self.formatDate(endDate);
-						});
-
-				// Create the notification containers
-					bots.append('div')
-						.attr('class', 'notifContainer')
-						.append('div')
-							.attr('class', 'insightNotif')
-							.text(d => d.botResult.insights.length + ' Insights');
-
-				// Transition to visible
-					bots.transition().style('opacity', 1);
-	},
-	'createInsights': function(botResult) {
-		var self = this;
-		var metricName = botResult.insightsBotResultConfig.metricName;
-		var denomMetricName = botResult.insightsBotResultConfig.denominationMetricName;
-		var volumeMetricName = botResult.insightsBotResultConfig.magnitudeMetricName;
-		var numMetricName = botResult.insightsBotResultConfig.numeratorMetricName;
-
-		if (d3.select('.loader').empty()) {
-			loader = mainContent.append('div')
-				.attr('class', 'loader')
-				.style('opacity', 0);
-			loader.transition().style('opacity', 1);
-		}
-
-		botResult.insights = botResult.insights.filter(x => {
-			if (x.analysisType == 'KPI') {
-				return true;
-			}
-			else if (x.analysisType == 'WIA') {
-				if (x.data.numeratorValue === 0 && x.comparedData.numeratorValue === 0 && x.data.denominatorValue === 0 && x.comparedData.denominatorValue === 0) {
-					return false;
-				}
-				else {
-					return true;
+		// Function to sort insight types
+			function sortInsightTypes(name) {
+				switch(name) {
+					case 'KPI':
+						return 0;
+					case 'DAY_OVER_DAY':
+						return 1;
+					case 'WEEK_OVER_WEEK':
+						return 2;
+					case 'MONTH_OVER_MONTH':
+						return 3;
+					case 'QUARTER_OVER_QUARTER':
+						return 4;
+					default:
+						return 5;
 				}
 			}
-			else {
-				return false;
-			}
-		});
 
-		botResult.insightsBotResultConfig.analysisConfigs = botResult.insightsBotResultConfig.analysisConfigs.filter(x => botResult.insights.find(y => y.analysisType == x.analysisType) && botResult.insights.find(y => y.analysisSubType == x.analysisSubType));
+		// Function to filter insight list
+			function filterInsightsList() {
+				var type = d3.select('#selectType').node().selectedOptions[0].value;
+				var dimension = d3.select('#selectDimensions').node().selectedOptions[0].value;
+				var positive = d3.select('#selectPos').node().selectedOptions[0].value;
+				var factor = d3.select('#selectFactor').node().selectedOptions[0].value;
 
-		// Function for populating the insights list
-			// Create the header
-				var insightsHeader = mainView.insert('div', '*')
-					.datum(botResult.insightsBotResultConfig)
-					.attr('id', 'insightsHeader')
-					.style('opacity', 0);
-
-				// Create the exit button
-					if (designSettings.botLocked_0 !== true) {
-						insightsHeader.append('svg')
-							.attr('id', 'headerExit')
-							.attr('viewBox', '-3 -3 11 16')
-							.attr('preserveAspectRatio', 'xMidYMin meet')
-							.on('click', () => { Promise.all([
-									insightsHeader.transition().style('opacity', 0).end(),
-									insightsNote.transition().style('opacity', 0).end(),
-									insights.transition().style('opacity', 0).end()
-								]).then(() => {
-									insightsHeader.remove();
-									insightsNote.remove();
-									insights.remove();
-
-									document.body.scrollTop = 0;
-
-									if (loaded === true) {
-										bots.style('display', null)
-										.transition().style('opacity', 1);
-									}
-									else {
-										loader = mainView.append('div')
-											.attr('class', 'loader')
-											.style('opacity', 0);
-										loader.transition().style('opacity', 1);
-										Promise.all(botList.bots.map(x => self.getBotResults(x.id))).then(botResults => {
-											loader.transition().style('opacity', 0).end().then(() => loader.remove());
-											self.createBots(botList, botResults);
-										});
-									}
-								});
-							})
-							.append('path')
-								.attr('d', 'M 5 0 L 0 5 L 5 10');
+				d3.selectAll('.insight')
+				.style('display', null)
+				.filter(x => {
+					var typeCheck = true;
+					if (type == 'KPI' && type != 'All') {
+						typeCheck = x.analysisType == type;
+					}
+					else if (type != 'All') {
+						typeCheck = x.analysisSubType == type;
 					}
 
-				// Create the containers for the rest of the header
-					var headerRows = insightsHeader.append('div')
-						.attr('id', 'headerRowsContainer');
+					var dimCheck = true;
+					if (dimension != 'All') {
+						dimCheck = x.dimensions.hasOwnProperty(dimension);
+					}
 
-					var headerRow1 = headerRows.append('div')
-						.attr('id', 'headerRow1');
+					var posCheck = true;
+					if (positive != 'All' && positive == 'Positive') {
+						posCheck = x.positive === true;
+					}
+					else if (positive != 'All' && positive == 'Negative') {
+						posCheck = x.positive === false;
+					}
 
-					var headerRow2 = headerRows.append('div')
-						.attr('id', 'headerRow2');
+					var factorCheck = true;
+					if (factor != 'All' && factor == 'Single') {
+						factorCheck = Object.keys(x.dimensions).length === 1;
+					}
+					else if (factor != 'All' && factor == 'Combo') {
+						factorCheck = Object.keys(x.dimensions).length > 1;
+					}
 
-				// Create the header name
-					var headerName = headerRow1.append('div')
-						.attr('id', 'headerName');
+					if (typeCheck && dimCheck && posCheck && factorCheck) {
+						return false;
+					}
+					else {
+						return true;
+					}
+				})
+				.style('display', 'none');
+			}
 
-					headerName.append('span')
-						.text(d => d.name);
+		// Function to remove hidden insights
+			function filterBotResult(botResult) {
+				botResult.insights = botResult.insights.filter(insight => {
+					var choice = true;
+					botResult.hiddenInsightsCriteria.forEach(criterion => {
+						if (insight.analysisType == criterion.type &&
+								insight.analysisSubType == criterion.subType &&
+								JSON.stringify(insight.dimensions) == JSON.stringify(criterion.dimensions)) {
+									choice = false;
+								}
+					});
+					return choice;
+				});
 
-					headerName.append('svg')
-						.attr('class', 'trendArrow')
-						.attr('viewBox', '-0.5 -0.5 11 11')
+				return botResult;
+			}
+
+		// Function to return formatted date
+			function formatDate(date) {
+				return date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' });
+			}
+
+		// Function to return spaced en-dash character
+			function enDash() {
+				return ' ' + String.fromCharCode(0x2013) + ' ';
+			}
+
+		// Function for bot creation
+			function createBots(botList, botResults) {
+				loaded = true;
+
+				// Create search box
+					searchContainer = mainContent.append('div')
+						.attr('id', 'search-container')
+						.style('opacity', 0);
+
+					var searchBox = searchContainer.append('div')
+						.attr('id', 'search-box');
+
+					searchBox.append('svg')
+						.attr('id', 'search-icon')
+						.attr('viewBox', '0 0 512 512')
 						.attr('preserveAspectRatio', 'xMidYMid meet')
 						.append('path')
-							.attr('transform', d => {
-								switch(d.expectIncreasingTrend) {
-									case true:
-										return 'rotate(-45)';
-									case false:
-										return 'rotate(45)';
-								}
+							.attr('d', 'M505 442.7L405.3 343c-4.5-4.5-10.6-7-17-7H372c27.6-35.3 44-79.7 44-128C416 93.1 322.9 0 208 0S0 93.1 0 208s93.1 208 208 208c48.3 0 92.7-16.4 128-44v16.3c0 6.4 2.5 12.5 7 17l99.7 99.7c9.4 9.4 24.6 9.4 33.9 0l28.3-28.3c9.4-9.4 9.4-24.6.1-34zM208 336c-70.7 0-128-57.2-128-128 0-70.7 57.2-128 128-128 70.7 0 128 57.2 128 128 0 70.7-57.2 128-128 128z');
+
+					searchBox.append('input')
+						.attr('id', 'search-input')
+						.attr('type', 'text')
+						.attr('autocomplete', 'off')
+						.attr('placeholder', 'Bot name...')
+						.on('input', () => {
+							var value = d3.select('#search-input').node().value;
+							bots.filter(x => !x.name.toLowerCase().includes(value)).style('display', 'none');
+							bots.filter(x => x.name.toLowerCase().includes(value)).style('display', null);
+						});
+
+				// Join the bot list with results
+					botList.bots.forEach((bot, i) => {
+						var newName = designSettings['botName_' + bot.id];
+						bot.name = newName;
+						botResults[i].name = newName;
+						botResults[i].insightsBotResultConfig.name = newName;
+						bot.botResult = botResults[i];
+					});
+
+				// Create bot divs
+					bots = mainContent.selectAll('div.bot')
+						.data(botList.bots.filter(x => x.status == 'DONE' && x.hasInsights))
+						.join('div')
+							.attr('id', d => 'bot-' + d.id)
+							.attr('class', 'bot')
+							.on('click', d => {
+								Promise.all([
+									searchContainer.transition().style('opacity', 0).end(),
+									bots.transition().style('opacity', 0).end()
+								]).then(() => {
+									searchContainer.style('display', 'none');
+									bots.style('display', 'none');
+									createInsights(d.botResult);
+								});
 							})
-							.attr('transform-origin', 'center center')
-							.attr('d', 'M 0 5 h 10 M 7 2 L 10 5 L 7 8');
+							.style('opacity', 0);
 
-				// Create the header type filter
-					var headerTypeFilter = headerRow1.append('div')
-						.attr('class', 'headerFilter');
+					// Create names and separation lines
+						var botName = bots.append('div')
+							.attr('class', 'botName');
 
-					headerTypeFilter.append('label')
-						.attr('for', 'selectType')
-						.text('Insight Type: ');
-
-					headerTypeFilter.append('select')
-						.attr('id', 'selectType')
-						.on('change', () => { self.filterInsightsList(); })
-						.selectAll('option')
-						.data(d => ['All'].concat(d.analysisConfigs.map(x => {
-							return x.analysisType == 'KPI' ? x.analysisType : x.analysisSubType
-						}).sort((a, b) => self.sortInsightTypes(a) - self.sortInsightTypes(b))))
-						.join('option')
-							.attr('value', d => d)
-							.text(d => d == 'All' ? d : designSettings[d]);
-
-				// Create the header dimension filter
-					var headerDimFilter = headerRow1.append('div')
-						.attr('class', 'headerFilter');
-
-					headerDimFilter.append('label')
-						.attr('for', 'selectDimensions')
-						.text('Dimensions: ');
-
-					headerDimFilter.append('select')
-						.attr('id', 'selectDimensions')
-						.on('change', () => { self.filterInsightsList(); })
-						.selectAll('option')
-						.data(() => ['All'].concat(Array.from(new Set(botResult.insights.map(x => Object.keys(x.dimensions)).flat())).sort()))
-						.join('option')
-							.attr('value', d => d)
-							.text(d => d == 'All' ? d : designSettings[d]);
-
-				// Create the header positive/negative filter
-					var headerPosFilter = headerRow1.append('div')
-						.attr('class', 'headerFilter');
-
-					headerPosFilter.append('label')
-						.attr('for', 'selectPos')
-						.text('Positive/Negative: ');
-
-					headerPosFilter.append('select')
-						.attr('id', 'selectPos')
-						.on('change', () => { self.filterInsightsList(); })
-						.selectAll('option')
-						.data(['All', 'Positive', 'Negative'])
-						.join('option')
-							.attr('value', d => d)
-							.text(d => d);
-
-				// Create the header factor filter
-					var headerFactorFilter = headerRow1.append('div')
-						.attr('class', 'headerFilter');
-
-					headerFactorFilter.append('label')
-						.attr('for', 'selectFactor')
-						.text('Factor: ');
-
-					headerFactorFilter.append('select')
-						.attr('id', 'selectFactor')
-						.on('change', () => { self.filterInsightsList(); })
-						.selectAll('option')
-						.data(['All', 'Single', 'Combo'])
-						.join('option')
-							.attr('value', d => d)
-							.text(d => d);
-
-				// Create the header insight types overview
-					var typeOverview = headerRow2.selectAll('div')
-					.data(d => {
-						return d.analysisConfigs.map(x => {
-							if (x.analysisType == 'KPI') {
-								return {
-									'name': x.analysisType,
-									'total': botResult.insights.find(y => y.analysisType == x.analysisType).data.totals.value,
-									'startDate': new Date(x.date.startDate),
-									'endDate': new Date(x.date.endDate)
-								}
-							}
-							else if (x.analysisType == 'WIA') {
-								return {
-									'name': x.analysisSubType,
-									'currentTotal': botResult.insights.find(y => y.analysisSubType == x.analysisSubType).data.totals.value,
-									'comparedTotal': botResult.insights.find(y => y.analysisSubType == x.analysisSubType).comparedData.totals.value,
-									'currentStartDate': new Date(x.date.startDate),
-									'currentEndDate': new Date(x.date.endDate),
-									'comparedStartDate': new Date(x.comparisonDate.startDate),
-									'comparedEndDate': new Date(x.comparisonDate.endDate)
-								}
-							}
-						}).sort((a, b) => self.sortInsightTypes(a.name) - self.sortInsightTypes(b.name));
-					})
-					.join('div')
-						.attr('class', 'typeOverview');
-
-					typeOverview.append('div')
-						.attr('class', 'typeTitle')
-						.text(d => designSettings[d.name] + ' Insights');
-
-					var typeOverviewDetail_1 = typeOverview.append('div')
-						.attr('class', 'typeDetail');
-
-					typeOverviewDetail_1.append('span')
-							.attr('class', 'typeText')
-							.text(d => {
-								if (d.name == 'KPI') {
-									return self.formatDate(d.startDate) + self.enDash() + self.formatDate(d.endDate);
-								}
-								else {
-									return self.formatDate(d.comparedStartDate) + self.enDash() + self.formatDate(d.comparedEndDate);
-								}
-							});
-
-					typeOverviewDetail_1.filter(x => x.name != 'KPI').append('div')
-						.attr('class', 'headerBar')
-						.style('background-color', designSettings.backgroundDimension)
-						.style('color', designSettings.backgroundText)
-						.style('width', d => d.comparedTotal / d3.max([d.currentTotal, d.comparedTotal]) * 100 + 'px')
-						.text(d => designSettings[metricName + '_format'] !== 0 ? d3.format(designSettings[metricName + '_format'])(d.comparedTotal) : null)
-						.each((d, i, nodes) => {
-							if (designSettings[metricName + '_format'] === 0) {
-								self.getFormattedValue(metricName, d.comparedTotal).then(result => {
-									d3.select(nodes[i]).text(result);
-								});
-							}
-						});
-
-					var typeOverviewDetail_2 = typeOverview.append('div')
-						.attr('class', 'typeDetail');
-
-					typeOverviewDetail_2.append('span')
-						.attr('class', 'typeText')
-						.text(d => {
-							if (d.name == 'KPI' && designSettings[metricName + '_format'] !== 0) {
-								return 'Overall ' + designSettings[metricName] + ' is ' + d3.format(designSettings[metricName + '_format'])(d.total);
-							}
-							else if (d.name != 'KPI') {
-								return self.formatDate(d.currentStartDate) + self.enDash() + self.formatDate(d.currentEndDate);
-							}
-						})
-						.each((d, i, nodes) => {
-							if (d.name == 'KPI' && designSettings[metricName + '_format'] === 0) {
-								self.getFormattedValue(metricName, d.total).then(result => {
-									d3.select(nodes[i]).text('Overall ' + designSettings[metricName] + ' is ' + result);
-								});
-							}
-						});
-
-					typeOverviewDetail_2.filter(x => x.name != 'KPI').append('div')
-						.attr('class', 'headerBar')
-						.style('background-color', designSettings.foregroundDimension)
-						.style('color', designSettings.foregroundTextContrast)
-						.style('width', d => d.currentTotal / d3.max([d.currentTotal, d.comparedTotal]) * 100 + 'px')
-						.text(d => designSettings[metricName + '_format'] !== 0 ? d3.format(designSettings[metricName + '_format'])(d.currentTotal) : null)
-						.each((d, i, nodes) => {
-							if (designSettings[metricName + '_format'] === 0) {
-								self.getFormattedValue(metricName, d.currentTotal).then(result => {
-									d3.select(nodes[i]).text(result);
-								});
-							}
-						});
-
-			// Header creation done - make it visible!
-				if (designSettings[metricName + '_format'] !== 0) {
-					insightsHeader.transition().style('opacity', 0.975);
-				}
-				else {
-					setTimeout(() => {
-						insightsHeader.transition().style('opacity', 0.975);
-					}, 1500);
-				}
-
-			// Create the insights
-				var insightsNote = mainContent.append('span')
-					.attr('id', 'insightsNote')
-					.style('opacity', 0)
-					.text('Insights are numbered by significance.');
-
-				var insights = mainContent.selectAll('div.insight')
-				.data(botResult.insights)
-				.join('div')
-					.attr('class', d => 'insight ' + d.analysisType.toLowerCase())
-					.style('opacity', 0);
-
-				// Create the title
-					insights.append('div')
-						.attr('class', 'insightTitle')
-						.datum(d => Object.entries(d.dimensions))
-						.on('mouseenter', d => {
-							tooltip
-							.style('display', null)
-							.text(() => d.map(x => designSettings[x[0]] + ' ' + x[1]).join(' and '));
-						})
-						.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
-						.on('mouseleave', () => { tooltip.style('display', 'none'); })
-						.selectAll('span')
-						.data(d => d)
-						.join('span')
-							.selectAll('span')
-							.data(d => d)
-							.join('span')
-								.attr('class', (d, i) => ['insightLabel', 'insightName'][i])
-								.text(d => designSettings[d] ?? d);
-
-				// Create the insight number label
-					insights.append('div')
-						.attr('class', 'insightNum')
-						.text((d, i) => i + 1);
-
-				// Create the insight text summaruy
-					var insightSummary = insights.append('div')
-						.attr('class', 'insightSummary');
-
-					// Create the thumb
-						insightSummary.append('svg')
-							.attr('class', d => 'thumb ' + (d.positive === true ? 'positive' : 'negative') )
-							.attr('viewBox', '0 0 32 32')
-							.attr('preserveAspectRatio', 'xMidYMid meet')
-							.attr('transform', d => d.positive === true ? 'scale(1, 1)' : 'scale(1, -1)')
-							.attr('transform-origin', 'center center')
-							.append('path')
-								.attr('d', 'M2.463 32c-1.342 0-2.463-1.121-2.463-2.463v-17.23c0-1.342 1.121-2.461 2.463-2.461h3.696c.911 0 1.709.523 2.134 1.274.831-.509 1.647-.807 2.172-1.11 1.238-.715 1.867-2.727 2.16-4.823.147-1.048.225-2.055.353-2.896.064-.42.128-.793.3-1.199.086-.203.2-.426.437-.654s.654-.437 1.053-.437c1.825 0 3.321.713 4.278 1.807s1.403 2.464 1.644 3.826c.392 2.223.244 4.104.168 5.448h7.442c2.024 0 3.698 1.665 3.698 3.689 0 .718-.204 1.258-.464 2.098s-.613 1.851-1 2.934c-.774 2.167-1.695 4.624-2.297 6.431-.24.722-.553 1.479-1.117 2.134s-1.474 1.17-2.506 1.17h-14.77c-.431 0-.84-.089-1.226-.228v.228c0 1.342-1.119 2.463-2.461 2.463h-3.696zM2.463 29.537h3.696v-17.23h-3.696v17.23zM9.846 27.076h14.77c.33 0 .426-.065.644-.317s.456-.738.646-1.31c.628-1.884 1.55-4.335 2.314-6.474.382-1.07.724-2.061.964-2.836s.356-1.472.356-1.37c0-.703-.535-1.226-1.238-1.226h-8.719c-.683.003-1.238-.554-1.235-1.238 0-1.454.316-4.049-.072-6.248-.194-1.099-.558-2.026-1.081-2.624-.387-.443-.934-.792-1.759-.925-.124.702-.208 1.899-.366 3.023-.321 2.293-.925 5.194-3.379 6.611-.913.527-1.797.834-2.326 1.199s-.745.561-.745 1.427v11.071c0 .703.523 1.235 1.226 1.235h0z');
-
-					// Create the text
-						insightSummary.append('span')
-							.attr('class', d => { return 'explanation ' + { 'true': 'positive', 'false': 'negative' }[d.positive]; })
-							.text(d => {
-								switch(d.analysisType) {
-									case 'KPI':
-										return (d.positive === true ? 'Over-performing' : 'Under-performing') + ' segment';
-									case 'WIA':
-										return d.positive === true
-											? 'Caused ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'an increase' : 'a decrease') + ' of overall ' + designSettings[metricName]
-											: 'Caused ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'a decrease' : 'an increase') + ' of overall ' + designSettings[metricName];
-								}
-							});
-
-					// Create the analysis sub type text for change-driver insights
-						insightSummary.filter(x => x.analysisType == 'WIA').append('span')
-							.attr('class', 'dateRange')
-							.on('mouseenter', d => {
-								var config = botResult.insightsBotResultConfig.analysisConfigs.find(x => x.analysisSubType == d.analysisSubType);
-								var compareStart = self.formatDate(new Date(config.comparisonDate.startDate));
-								var compareEnd = self.formatDate(new Date(config.comparisonDate.endDate));
-								var thisStart = self.formatDate(new Date(config.date.startDate));
-								var thisEnd = self.formatDate(new Date(config.date.endDate));
-								
-								tooltip.style('display', null)
-								.text(compareStart + self.enDash() + compareEnd + ' vs. ' + thisStart + self.enDash() + thisEnd);
-							})
+						botName.append('span')
+							.on('mouseenter', d => { tooltip.style('display', null).text(d.name); })
 							.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
 							.on('mouseleave', () => { tooltip.style('display', 'none'); })
-							.text(d => designSettings[d.analysisSubType]);
+							.text(d => d.name);
 
-				// Create the insight visualisation elements
-					var insightViz = insights.append('div')
-						.attr('class', 'vizContainer');
+						botName.append('hr');
 
-					// Create the visualisations, starting with performance insights
-						var kpiViz = insightViz.filter(x => x.analysisType == 'KPI').selectAll('div')
-						.data(d => { return [
-							{ 'metricName': metricName,
-								'summaryValue': (d.data.value - d.data.totals.value) / d.data.totals.value,
-								'thisValue': d.data.value,
-								'totalValue': d.data.totals.value },
-							{ 'metricName': volumeMetricName,
-								'summaryValue': d.data.volume / d.data.totals.volume,
-								'thisValue': d.data.volume,
-								'totalValue': d.data.totals.volume }
-							]; })
-						.join('div')
-							.attr('class', 'kpiViz');
+					// Create metric name labels and trend arrows
+						var botMetric = bots.append('div')
+							.attr('class', 'metricName');
 
-						// Create the judgment text
-							var kpiVizDesc = kpiViz.append('div')
-								.attr('class', 'kpiVizDesc');
+						botMetric.append('span')
+							.attr('class', 'botLabel')
+							.text('KPI: ');
 
-							kpiVizDesc.append('span')
-								.attr('class', 'metricName')
-								.text(d => designSettings[d.metricName]);
-							
-							kpiVizDesc.append('span')
-								.attr('class', 'metricDesc')
-								.text((d, i) => {
-									switch(i) {
-										case 0:
-											return ' is ' + d3.format(designSettings.percent_format)(d.summaryValue) + (d.thisValue > d.totalValue ? ' above' : ' below') + ' average.';
-										case 1:
-											return ' is ' + d3.format(designSettings.percent_format)(d.summaryValue) + ' of total.';
-									}
-								});
+						botMetric.append('span')
+							.attr('class', 'botDesc')
+							.on('mouseenter', (d, i, nodes) => { tooltip.style('display', null).text(d3.select(nodes[i]).text()); })
+							.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
+							.on('mouseleave', () => { tooltip.style('display', 'none'); })
+							.text(d => designSettings[d.metricName]);
 
-						// Create the bars visualisations
-							var kpiVizBars = insightViz.selectAll('.kpiViz:first-child').append('svg')
-								.attr('class', 'kpiVizBars')
-								.datum(d => {
-									var max = d3.max([d.thisValue, d.totalValue]);
-									return [
-										{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'metricName': d.metricName, 'value': d.thisValue, 'max': max },
-										{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'metricName': d.metricName, 'value': d.totalValue, 'max': max }
-									];
-								});
+						botMetric.append('svg')
+							.attr('class', 'trendArrow')
+							.attr('viewBox', '-0.5 -0.5 11 11')
+							.attr('preserveAspectRatio', 'xMidYMid meet')
+							.append('path')
+								.attr('d', d => {
+										switch(d.expectedIncreasingTrend) {
+											case true:
+												return 'M 0 10 L 10 0 M 5 0 L 10 0 L 10 5';
+											case false:
+												return 'M 0 0 L 10 10 M 10 5 L 10 10 L 5 10';
+										}
+									});
 
-							kpiVizBars.selectAll('rect')
-							.data(d => d)
-							.join('rect')
-								.attr('fill', d => d.barColor)
-								.attr('x', (d, i) => ['0%', '55%'][i])
-								.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 20 + '%')
-								.attr('width', '45%')
-								.attr('height', d => d.value / d.max * 100 * 0.8 + '%');
+					// Create type labels
+						var botType = bots.append('div')
+							.attr('class', 'botType');
 
-							kpiVizBars.selectAll('text')
-							.data(d => d)
-							.join('text')
-								.attr('fill', d => d.textColor)
-								.attr('text-anchor', 'middle')
-								.attr('x', (d, i) => ['22.5%', '77.5%'][i])
-								.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 17 + '%')
-								.text(d => designSettings[d.metricName + '_format'] !== 0 ? d3.format(designSettings[d.metricName + '_format'])(d.value) : null)
-								.each((d, i, nodes) => {
-									if (designSettings[d.metricName + '_format'] === 0) {
-										self.getFormattedValue(d.metricName, d.value).then(result => {
-											d3.select(nodes[i]).text(result);
+						botType.append('span')
+							.attr('class', 'botLabel')
+							.text('Types: ');
+
+						botType.append('span')
+							.attr('class', 'botDesc')
+							.on('mouseenter', (d, i, nodes) => { tooltip.style('display', null).text(d3.select(nodes[i]).text()); })
+							.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
+							.on('mouseleave', () => { tooltip.style('display', 'none'); })
+							.text(d => {
+								return Array.from(new Set(d.botResult.insights.map(x => {
+									return x.analysisType == 'KPI' ? x.analysisType : x.analysisSubType;
+								}))).sort((a, b) => sortInsightTypes(a) - sortInsightTypes(b)).map(x => designSettings[x]).join(', ');
+							});
+
+					// Create date labels
+						var botDates = bots.append('div')
+							.attr('class', 'botDates');
+
+						botDates.append('span')
+							.attr('class', 'botLabel')
+							.text('Dates: ');
+
+						botDates.append('span')
+							.attr('class', 'botText')
+							.text(d => {
+								var startDate = d3.min(d.analysisConfigs, x => new Date(x.date.startDate));
+								var endDate = d3.max(d.analysisConfigs, x => new Date(x.date.endDate));
+								return formatDate(startDate) + enDash() + formatDate(endDate);
+							});
+
+					// Create the notification containers
+						bots.append('div')
+							.attr('class', 'notifContainer')
+							.append('div')
+								.attr('class', 'insightNotif')
+								.text(d => d.botResult.insights.length + ' Insights');
+
+					// Transition to visible
+						loader.transition().style('opacity', 0).end().then(() => loader.remove());
+						searchContainer.transition().style('opacity', 1);
+						bots.transition().style('opacity', 1);
+			}
+
+		// Function for insight creation
+			function createInsights(botResult) {
+				var metricName = botResult.insightsBotResultConfig.metricName;
+				var denomMetricName = botResult.insightsBotResultConfig.denominationMetricName;
+				var volumeMetricName = botResult.insightsBotResultConfig.magnitudeMetricName;
+				var numMetricName = botResult.insightsBotResultConfig.numeratorMetricName;
+
+				if (d3.select('.loader').empty()) {
+					loader = mainContent.append('div')
+						.attr('class', 'loader')
+						.style('opacity', 0);
+					loader.transition().style('opacity', 1);
+				}
+
+				botResult.insights = botResult.insights.filter(x => {
+					if (x.analysisType == 'KPI') {
+						return true;
+					}
+					else if (x.analysisType == 'WIA') {
+						if (x.data.numeratorValue === 0 && x.comparedData.numeratorValue === 0 && x.data.denominatorValue === 0 && x.comparedData.denominatorValue === 0) {
+							return false;
+						}
+						else {
+							return true;
+						}
+					}
+					else {
+						return false;
+					}
+				});
+
+				botResult.insightsBotResultConfig.analysisConfigs = botResult.insightsBotResultConfig.analysisConfigs.filter(x => botResult.insights.find(y => y.analysisType == x.analysisType) && botResult.insights.find(y => y.analysisSubType == x.analysisSubType));
+
+				// Function for populating the insights list
+					// Create the header
+						var insightsHeader = mainView.insert('div', '*')
+							.datum(botResult.insightsBotResultConfig)
+							.attr('id', 'insightsHeader')
+							.style('opacity', 0);
+
+						// Create the exit button
+							if (designSettings.botLocked_0 !== true) {
+								insightsHeader.append('svg')
+									.attr('id', 'headerExit')
+									.attr('viewBox', '-3 -3 11 16')
+									.attr('preserveAspectRatio', 'xMidYMin meet')
+									.on('click', () => { Promise.all([
+											insightsHeader.transition().style('opacity', 0).end(),
+											insightsNote.transition().style('opacity', 0).end(),
+											insights.transition().style('opacity', 0).end()
+										]).then(() => {
+											insightsHeader.remove();
+											insightsNote.remove();
+											insights.remove();
+
+											document.body.scrollTop = 0;
+
+											if (loaded === true) {
+												searchContainer.style('display', null)
+												.transition().style('opacity', 1);
+												searchContainer.select('input').node().value = null;
+												bots.style('display', null)
+												.transition().style('opacity', 1);
+											}
+											else {
+												loader = mainView.append('div')
+													.attr('class', 'loader')
+													.style('opacity', 0);
+												loader.transition().style('opacity', 1);
+												Promise.all(botList.bots.map(x => getBotResults(x.id))).then(botResults => {
+													loader.transition().style('opacity', 0).end().then(() => loader.remove());
+													createBots(botList, botResults);
+												});
+											}
 										});
-									}
-								});
+									})
+									.append('path')
+										.attr('d', 'M 5 0 L 0 5 L 5 10');
+							}
 
-						// Create the pie visualisations
-							var kpiVizPie = insightViz.selectAll('.kpiViz:nth-child(2)').append('svg')
-								.attr('class', 'kpiVizPie')
-								.attr('viewBox', '0 0 65 65')
+						// Create the containers for the rest of the header
+							var headerRows = insightsHeader.append('div')
+								.attr('id', 'headerRowsContainer');
+
+							var headerRow1 = headerRows.append('div')
+								.attr('id', 'headerRow1');
+
+							var headerRow2 = headerRows.append('div')
+								.attr('id', 'headerRow2');
+
+						// Create the header name
+							var headerName = headerRow1.append('div')
+								.attr('id', 'headerName');
+
+							headerName.append('span')
+								.text(d => d.name);
+
+							headerName.append('svg')
+								.attr('class', 'trendArrow')
+								.attr('viewBox', '-0.5 -0.5 11 11')
 								.attr('preserveAspectRatio', 'xMidYMid meet')
-								.datum(d => [
-									{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'metricName': d.metricName, 'value': d.totalValue },
-									{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'metricName': d.metricName, 'value': d.thisValue, 'clipId': Math.random().toString(36).substr(2, 9) }
-								]);
-
-							kpiVizPie.append('defs').append('clipPath')
-								.attr('id', d => d[1].clipId)
 								.append('path')
 									.attr('d', d => {
-										var angle = (d[1].value / d[0].value * 360 - 90) * Math.PI / 180;
-										var largeArc = d[1].value / d[0].value > 0.5 ? 1 : 0;
-										return [
-											'M 32.5 32.5',
-											'L 32.5 0',
-											'A 32.5 32.5 0 ' + largeArc + ' 1 ' + (32.5 + 32.5 * Math.cos(angle)) + ' ' + (32.5 + 32.5 * Math.sin(angle)),
-											'z'
-										].join(' ');
+										switch(d.expectIncreasingTrend) {
+											case true:
+												return 'M 0 10 L 10 0 M 5 0 L 10 0 L 10 5';
+											case false:
+												return 'M 0 0 L 10 10 M 10 5 L 10 10 L 5 10';
+										}
 									});
 
-							kpiVizPie.selectAll('circle')
-							.data(d => d)
-							.join('circle')
-								.attr('fill', 'none')
-								.attr('stroke', d => d.barColor)
-								.attr('clip-path', (d, i) => [null, 'url(#' + d.clipId + ')'][i])
-								.attr('cx', '32.5')
-								.attr('cy', '32.5')
-								.attr('r', '26.5');
+						// Create the header type filter
+							var headerTypeFilter = headerRow1.append('div')
+								.attr('class', 'headerFilter');
 
-							kpiVizPie.selectAll('text')
-							.data(d => d)
-							.join('text')
-								.attr('fill', d => d.textColor)
-								.attr('font-size', '9.9')
-								.attr('text-anchor', 'middle')
-								.attr('x', '32.5')
-								.attr('y', (d, i) => ['42.5', '30.5'][i])
-								.text(d => designSettings[d.metricName + '_format'] !== 0 ? d3.format(designSettings[d.metricName + '_format'])(d.value) : null)
+							headerTypeFilter.append('label')
+								.attr('for', 'selectType')
+								.text('Insight Type: ');
+
+							headerTypeFilter.append('select')
+								.attr('id', 'selectType')
+								.on('change', () => { filterInsightsList(); })
+								.selectAll('option')
+								.data(d => ['All'].concat(d.analysisConfigs.map(x => {
+									return x.analysisType == 'KPI' ? x.analysisType : x.analysisSubType
+								}).sort((a, b) => sortInsightTypes(a) - sortInsightTypes(b))))
+								.join('option')
+									.attr('value', d => d)
+									.text(d => d == 'All' ? d : designSettings[d]);
+
+						// Create the header dimension filter
+							var headerDimFilter = headerRow1.append('div')
+								.attr('class', 'headerFilter');
+
+							headerDimFilter.append('label')
+								.attr('for', 'selectDimensions')
+								.text('Dimensions: ');
+
+							headerDimFilter.append('select')
+								.attr('id', 'selectDimensions')
+								.on('change', () => { filterInsightsList(); })
+								.selectAll('option')
+								.data(() => ['All'].concat(Array.from(new Set(botResult.insights.map(x => Object.keys(x.dimensions)).flat())).sort()))
+								.join('option')
+									.attr('value', d => d)
+									.text(d => d == 'All' ? d : designSettings[d]);
+
+						// Create the header positive/negative filter
+							var headerPosFilter = headerRow1.append('div')
+								.attr('class', 'headerFilter');
+
+							headerPosFilter.append('label')
+								.attr('for', 'selectPos')
+								.text('Positive/Negative: ');
+
+							headerPosFilter.append('select')
+								.attr('id', 'selectPos')
+								.on('change', () => { filterInsightsList(); })
+								.selectAll('option')
+								.data(['All', 'Positive', 'Negative'])
+								.join('option')
+									.attr('value', d => d)
+									.text(d => d);
+
+						// Create the header factor filter
+							var headerFactorFilter = headerRow1.append('div')
+								.attr('class', 'headerFilter');
+
+							headerFactorFilter.append('label')
+								.attr('for', 'selectFactor')
+								.text('Factor: ');
+
+							headerFactorFilter.append('select')
+								.attr('id', 'selectFactor')
+								.on('change', () => { filterInsightsList(); })
+								.selectAll('option')
+								.data(['All', 'Single', 'Combo'])
+								.join('option')
+									.attr('value', d => d)
+									.text(d => d);
+
+						// Create the header insight types overview
+							var typeOverview = headerRow2.selectAll('div')
+							.data(d => {
+								return d.analysisConfigs.map(x => {
+									if (x.analysisType == 'KPI') {
+										return {
+											'name': x.analysisType,
+											'total': botResult.insights.find(y => y.analysisType == x.analysisType).data.totals.value,
+											'startDate': new Date(x.date.startDate),
+											'endDate': new Date(x.date.endDate)
+										}
+									}
+									else if (x.analysisType == 'WIA') {
+										return {
+											'name': x.analysisSubType,
+											'currentTotal': botResult.insights.find(y => y.analysisSubType == x.analysisSubType).data.totals.value,
+											'comparedTotal': botResult.insights.find(y => y.analysisSubType == x.analysisSubType).comparedData.totals.value,
+											'currentStartDate': new Date(x.date.startDate),
+											'currentEndDate': new Date(x.date.endDate),
+											'comparedStartDate': new Date(x.comparisonDate.startDate),
+											'comparedEndDate': new Date(x.comparisonDate.endDate)
+										}
+									}
+								}).sort((a, b) => sortInsightTypes(a.name) - sortInsightTypes(b.name));
+							})
+							.join('div')
+								.attr('class', 'typeOverview');
+
+							typeOverview.append('div')
+								.attr('class', 'typeTitle')
+								.text(d => designSettings[d.name] + ' Insights');
+
+							var typeOverviewDetail_1 = typeOverview.append('div')
+								.attr('class', 'typeDetail');
+
+							typeOverviewDetail_1.append('span')
+									.attr('class', 'typeText')
+									.text(d => {
+										if (d.name == 'KPI') {
+											return formatDate(d.startDate) + enDash() + formatDate(d.endDate);
+										}
+										else {
+											return formatDate(d.comparedStartDate) + enDash() + formatDate(d.comparedEndDate);
+										}
+									});
+
+							typeOverviewDetail_1.filter(x => x.name != 'KPI').append('div')
+								.attr('class', 'headerBar')
+								.style('background-color', designSettings.backgroundDimension)
+								.style('color', designSettings.backgroundText)
+								.style('width', d => d.comparedTotal / d3.max([d.currentTotal, d.comparedTotal]) * 100 + 'px')
+								.text(d => designSettings[metricName + '_format'] !== 0 ? d3.format(designSettings[metricName + '_format'])(d.comparedTotal) : null)
 								.each((d, i, nodes) => {
-									if (designSettings[d.metricName + '_format'] === 0) {
-										self.getFormattedValue(d.metricName, d.value).then(result => {
+									if (designSettings[metricName + '_format'] === 0) {
+										getFormattedValue(metricName, d.comparedTotal).then(result => {
 											d3.select(nodes[i]).text(result);
 										});
 									}
 								});
 
-					// Create the visualisations for change-driver insights
-						// Create the division sections
-							var wiaDivisions = insightViz.filter(x => x.analysisType == 'WIA').selectAll('div')
-							.data(d => { return [
-								{ 'name': numMetricName,
-									'positive': d.positive,
-									'current': d.data.numeratorValue,
-									'currentTotal': d.data.totals.numeratorValue,
-									'compare': d.comparedData.numeratorValue,
-									'compareTotal': d.comparedData.totals.numeratorValue },
-								{ 'name': denomMetricName,
-									'positive': d.positive,
-									'current': d.data.denominatorValue,
-									'currentTotal': d.data.totals.denominatorValue,
-									'compare': d.comparedData.denominatorValue,
-									'compareTotal': d.comparedData.totals.denominatorValue }
-							]; })
-							.join('div')
-								.attr('class', 'wiaDivisions');
+							var typeOverviewDetail_2 = typeOverview.append('div')
+								.attr('class', 'typeDetail');
 
-							// Create the judgment text
-								var wiaDivisionsVizDesc = wiaDivisions.append('div')
-									.attr('class', 'wiaVizDesc');
+							typeOverviewDetail_2.append('span')
+								.attr('class', 'typeText')
+								.text(d => {
+									if (d.name == 'KPI' && designSettings[metricName + '_format'] !== 0) {
+										return 'Overall ' + designSettings[metricName] + ' is ' + d3.format(designSettings[metricName + '_format'])(d.total);
+									}
+									else if (d.name != 'KPI') {
+										return formatDate(d.currentStartDate) + enDash() + formatDate(d.currentEndDate);
+									}
+								})
+								.each((d, i, nodes) => {
+									if (d.name == 'KPI' && designSettings[metricName + '_format'] === 0) {
+										getFormattedValue(metricName, d.total).then(result => {
+											d3.select(nodes[i]).text('Overall ' + designSettings[metricName] + ' is ' + result);
+										});
+									}
+								});
 
-								var wiaDivisionsNewSegments = wiaDivisionsVizDesc.filter(d => d.current === 0 || d.compare === 0);
+							typeOverviewDetail_2.filter(x => x.name != 'KPI').append('div')
+								.attr('class', 'headerBar')
+								.style('background-color', designSettings.foregroundDimension)
+								.style('color', designSettings.foregroundTextContrast)
+								.style('width', d => d.currentTotal / d3.max([d.currentTotal, d.comparedTotal]) * 100 + 'px')
+								.text(d => designSettings[metricName + '_format'] !== 0 ? d3.format(designSettings[metricName + '_format'])(d.currentTotal) : null)
+								.each((d, i, nodes) => {
+									if (designSettings[metricName + '_format'] === 0) {
+										getFormattedValue(metricName, d.currentTotal).then(result => {
+											d3.select(nodes[i]).text(result);
+										});
+									}
+								});
 
-								wiaDivisionsNewSegments.append('span')
-									.attr('class', 'metricName')
-									.text(d => designSettings[d.name]);
+					// Header creation done - make it visible!
+						if (designSettings[metricName + '_format'] !== 0) {
+							insightsHeader.transition().style('opacity', 0.975);
+						}
+						else {
+							setTimeout(() => {
+								insightsHeader.transition().style('opacity', 0.975);
+							}, 1500);
+						}
 
-								wiaDivisionsNewSegments.append('span')
-									.attr('class', 'metricDesc')
-									.text(d => (d.current === 0 ? ' stopped' : ' started') + ' delivering.');
+					// Create the insights
+						var insightsNote = mainContent.append('span')
+							.attr('id', 'insightsNote')
+							.style('opacity', 0)
+							.text('Insights are numbered by significance.');
 
-								var wiaDivisionsOtherSegments = wiaDivisionsVizDesc.filter(x => x.current !== 0 && x.compare !== 0);
+						var insights = mainContent.selectAll('div.insight')
+						.data(botResult.insights)
+						.join('div')
+							.attr('class', d => 'insight ' + d.analysisType.toLowerCase())
+							.style('opacity', 0);
 
-								wiaDivisionsOtherSegments.append('span')
-									.attr('class', 'metricName')
-									.text(d => designSettings[d.name]);
-
-								wiaDivisionsOtherSegments.append('span')
-									.attr('class', 'metricDesc')
-									.text(d => (d.current > d.compare ? ' increased' : ' decreased') + ' by ' + d3.format(designSettings.percent_format)((d.current - d.compare) / d.compare) + '.');
-
-							// Create the change visualisations
-								wiaDivisionsViz = wiaDivisions.append('svg')
-									.attr('class', 'wiaViz')
-									.datum(d => {
-										var max = d3.max([d.compareTotal, d.currentTotal]);
-										return [
-											{ 'name': d.name, 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.compareTotal, 'max': max, 'textShift': 0 },
-											{ 'name': d.name, 'barColor': designSettings.foregroundDimension, 'textColor': d.compareTotal / max - d.compare / max < 0.2 ? designSettings.foregroundTextContrast : designSettings.foregroundText, 'value': d.compare, 'max': max, 'textShift': d.compareTotal / max - d.compare / max < 0.2 ? 20 : 0 },
-											{ 'name': d.name, 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.currentTotal, 'max': max, 'textShift': 0 },
-											{ 'name': d.name, 'barColor': designSettings.foregroundDimension, 'textColor': d.compareTotal / max - d.compare / max < 0.2 ? designSettings.foregroundTextContrast : designSettings.foregroundText, 'value': d.current, 'max': max, 'textShift': d.currentTotal / max - d.current / max < 0.2 ? 20 : 0 }
-										];
-									});
-
-								wiaDivisionsViz.selectAll('rect')
+						// Create the title
+							insights.append('div')
+								.attr('class', 'insightTitle')
+								.datum(d => Object.entries(d.dimensions))
+								.on('mouseenter', d => {
+									tooltip
+									.style('display', null)
+									.text(() => d.map(x => designSettings[x[0]] + ' ' + x[1]).join(' and '));
+								})
+								.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
+								.on('mouseleave', () => { tooltip.style('display', 'none'); })
+								.selectAll('span')
 								.data(d => d)
-								.join('rect')
-									.attr('fill', d => d.barColor)
-									.attr('x', (d, i) => ['0%', '0%', '60%', '60%'][i])
-									.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 20 + '%')
-									.attr('width', '40%')
-									.attr('height', d => d.value / d.max * 100 * 0.8 + '%');
+								.join('span')
+									.selectAll('span')
+									.data(d => d)
+									.join('span')
+										.attr('class', (d, i) => ['insightLabel', 'insightName'][i])
+										.text(d => designSettings[d] ?? d);
 
-								wiaDivisionsViz.selectAll('text')
-								.data(d => d)
-								.join('text')
-									.attr('fill', d => d.textColor)
-									.attr('text-anchor', 'middle')
-									.attr('x', (d, i) => ['20%', '20%', '80%', '80%'][i])
-									.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 17 + d.textShift + '%')
-									.text(d => designSettings[d.name + '_format'] !== 0 ? d3.format(designSettings[d.name + '_format'])(d.value) : null)
-									.each((d, i, nodes) => {
-										if (designSettings[d.name + '_format'] === 0) {
-											self.getFormattedValue(d.name, d.value).then(result => {
-												d3.select(nodes[i]).text(result);
-											});
+						// Create the insight number label
+							insights.append('div')
+								.attr('class', 'insightNum')
+								.text((d, i) => i + 1);
+
+						// Create the insight text summaruy
+							var insightSummary = insights.append('div')
+								.attr('class', 'insightSummary');
+
+							// Create the thumb
+								insightSummary.append('svg')
+									.attr('class', d => 'thumb ' + (d.positive === true ? 'positive' : 'negative') )
+									.attr('viewBox', '0 0 32 32')
+									.attr('preserveAspectRatio', 'xMidYMid meet')
+									.attr('transform', d => d.positive === true ? 'scale(1, 1)' : 'scale(1, -1)')
+									.attr('transform-origin', 'center center')
+									.append('path')
+										.attr('d', 'M2.463 32c-1.342 0-2.463-1.121-2.463-2.463v-17.23c0-1.342 1.121-2.461 2.463-2.461h3.696c.911 0 1.709.523 2.134 1.274.831-.509 1.647-.807 2.172-1.11 1.238-.715 1.867-2.727 2.16-4.823.147-1.048.225-2.055.353-2.896.064-.42.128-.793.3-1.199.086-.203.2-.426.437-.654s.654-.437 1.053-.437c1.825 0 3.321.713 4.278 1.807s1.403 2.464 1.644 3.826c.392 2.223.244 4.104.168 5.448h7.442c2.024 0 3.698 1.665 3.698 3.689 0 .718-.204 1.258-.464 2.098s-.613 1.851-1 2.934c-.774 2.167-1.695 4.624-2.297 6.431-.24.722-.553 1.479-1.117 2.134s-1.474 1.17-2.506 1.17h-14.77c-.431 0-.84-.089-1.226-.228v.228c0 1.342-1.119 2.463-2.461 2.463h-3.696zM2.463 29.537h3.696v-17.23h-3.696v17.23zM9.846 27.076h14.77c.33 0 .426-.065.644-.317s.456-.738.646-1.31c.628-1.884 1.55-4.335 2.314-6.474.382-1.07.724-2.061.964-2.836s.356-1.472.356-1.37c0-.703-.535-1.226-1.238-1.226h-8.719c-.683.003-1.238-.554-1.235-1.238 0-1.454.316-4.049-.072-6.248-.194-1.099-.558-2.026-1.081-2.624-.387-.443-.934-.792-1.759-.925-.124.702-.208 1.899-.366 3.023-.321 2.293-.925 5.194-3.379 6.611-.913.527-1.797.834-2.326 1.199s-.745.561-.745 1.427v11.071c0 .703.523 1.235 1.226 1.235h0z');
+
+							// Create the text
+								insightSummary.append('span')
+									.attr('class', d => { return 'explanation ' + { 'true': 'positive', 'false': 'negative' }[d.positive]; })
+									.text(d => {
+										switch(d.analysisType) {
+											case 'KPI':
+												return (d.positive === true ? 'Over-performing' : 'Under-performing') + ' segment';
+											case 'WIA':
+												return d.positive === true
+													? 'Caused ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'an increase' : 'a decrease') + ' of overall ' + designSettings[metricName]
+													: 'Caused ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'a decrease' : 'an increase') + ' of overall ' + designSettings[metricName];
 										}
 									});
 
-								wiaDivisionsViz.append('text')
-									.attr('class', 'arrowText')
-									.attr('text-anchor', 'middle')
-									.attr('x', '50%')
-									.attr('y', '60%')
-									.text(String.fromCharCode(0x25ba));
+							// Create the analysis sub type text for change-driver insights
+								insightSummary.filter(x => x.analysisType == 'WIA').append('span')
+									.attr('class', 'dateRange')
+									.on('mouseenter', d => {
+										var config = botResult.insightsBotResultConfig.analysisConfigs.find(x => x.analysisSubType == d.analysisSubType);
+										var compareStart = formatDate(new Date(config.comparisonDate.startDate));
+										var compareEnd = formatDate(new Date(config.comparisonDate.endDate));
+										var thisStart = formatDate(new Date(config.date.startDate));
+										var thisEnd = formatDate(new Date(config.date.endDate));
+										
+										tooltip.style('display', null)
+										.text(compareStart + enDash() + compareEnd + ' vs. ' + thisStart + enDash() + thisEnd);
+									})
+									.on('mousemove', () => { tooltip.style('top', event.clientY + 'px').style('left', event.clientX + 'px'); })
+									.on('mouseleave', () => { tooltip.style('display', 'none'); })
+									.text(d => designSettings[d.analysisSubType]);
 
-						// Create the result section
-							var wiaResult = insightViz.filter(x => x.analysisType == 'WIA').append('div')
-								.attr('class', 'wiaResult');
+						// Create the insight visualisation elements
+							var insightViz = insights.append('div')
+								.attr('class', 'vizContainer');
 
-							// Create the judgment text
-								var wiaResultVizDesc = wiaResult.append('div')
-									.attr('class', 'wiaVizDesc');
+							// Create the visualisations, starting with performance insights
+								var kpiViz = insightViz.filter(x => x.analysisType == 'KPI').selectAll('div')
+								.data(d => { return [
+									{ 'metricName': metricName,
+										'summaryValue': (d.data.value - d.data.totals.value) / d.data.totals.value,
+										'thisValue': d.data.value,
+										'totalValue': d.data.totals.value },
+									{ 'metricName': volumeMetricName,
+										'summaryValue': d.data.volume / d.data.totals.volume,
+										'thisValue': d.data.volume,
+										'totalValue': d.data.totals.volume }
+									]; })
+								.join('div')
+									.attr('class', 'kpiViz');
 
-								var wiaResultNewSegments = wiaResultVizDesc.filter(x => x.comparedData.value === 0 || x.data.value === 0);
+								// Create the judgment text
+									var kpiVizDesc = kpiViz.append('div')
+										.attr('class', 'kpiVizDesc');
 
-								wiaResultNewSegments.append('span')
-									.attr('class', 'metricDescription')
-									.text('Segment ');
+									kpiVizDesc.append('span')
+										.attr('class', 'metricName')
+										.text(d => designSettings[d.metricName]);
+									
+									kpiVizDesc.append('span')
+										.attr('class', 'metricDesc')
+										.text((d, i) => {
+											switch(i) {
+												case 0:
+													return ' is ' + d3.format(designSettings.percent_format)(d.summaryValue) + (d.thisValue > d.totalValue ? ' above' : ' below') + ' average.';
+												case 1:
+													return ' is ' + d3.format(designSettings.percent_format)(d.summaryValue) + ' of total.';
+											}
+										});
 
-								wiaResultNewSegments.append('span')
-									.attr('class', 'metricName')
-									.text(d => d.comparedData.value === 0 ? 'is new' : 'stopped');
+								// Create the bars visualisations
+									var kpiVizBars = insightViz.selectAll('.kpiViz:first-child').append('svg')
+										.attr('class', 'kpiVizBars')
+										.datum(d => {
+											var max = d3.max([d.thisValue, d.totalValue]);
+											return [
+												{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'metricName': d.metricName, 'value': d.thisValue, 'max': max },
+												{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'metricName': d.metricName, 'value': d.totalValue, 'max': max }
+											];
+										});
 
-								wiaResultNewSegments.append('span')
-									.attr('class', 'metricDescription')
-									.text(d => ' and is performing ' + (d.positive ? 'well.' : 'badly.'));
+									kpiVizBars.selectAll('rect')
+									.data(d => d)
+									.join('rect')
+										.attr('fill', d => d.barColor)
+										.attr('x', (d, i) => ['0%', '55%'][i])
+										.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 20 + '%')
+										.attr('width', '45%')
+										.attr('height', d => d.value / d.max * 100 * 0.8 + '%');
 
-								var wiaResultOtherSegments = wiaResultVizDesc.filter(x => x.comparedData.value !== 0 && x.data.value !== 0);
+									kpiVizBars.selectAll('text')
+									.data(d => d)
+									.join('text')
+										.attr('fill', d => d.textColor)
+										.attr('text-anchor', 'middle')
+										.attr('x', (d, i) => ['22.5%', '77.5%'][i])
+										.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 17 + '%')
+										.text(d => designSettings[d.metricName + '_format'] !== 0 ? d3.format(designSettings[d.metricName + '_format'])(d.value) : null)
+										.each((d, i, nodes) => {
+											if (designSettings[d.metricName + '_format'] === 0) {
+												getFormattedValue(d.metricName, d.value).then(result => {
+													d3.select(nodes[i]).text(result);
+												});
+											}
+										});
 
-								wiaResultOtherSegments.append('span')
-									.attr('class', 'metricName')
-									.text(d => designSettings[metricName]);
+								// Create the pie visualisations
+									var kpiVizPie = insightViz.selectAll('.kpiViz:nth-child(2)').append('svg')
+										.attr('class', 'kpiVizPie')
+										.attr('viewBox', '0 0 65 65')
+										.attr('preserveAspectRatio', 'xMidYMid meet')
+										.datum(d => [
+											{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'metricName': d.metricName, 'value': d.totalValue },
+											{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'metricName': d.metricName, 'value': d.thisValue, 'clipId': Math.random().toString(36).substr(2, 9) }
+										]);
 
-								wiaResultOtherSegments.append('span')
-									.attr('class', 'metricDesc')
-									.text(d => ((d.data.value > d.comparedData.value) ? ' increased': ' decreased') + ' by ' + d3.format(designSettings.percent_format)((d.data.value - d.comparedData.value) / d.comparedData.value) + '.');
-
-							// Create the result visualisation
-								var wiaResultViz = wiaResult.append('svg')
-									.attr('class', 'wiaViz')
-									.datum(d => {
-										var max = d3.max([d.comparedData.value, d.comparedData.totals.value, d.data.value, d.data.totals.value]);
-										return [
-											{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'value': d.comparedData.value, 'max': max },
-											{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.comparedData.totals.value, 'max': max },
-											{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'value': d.data.value, 'max': max },
-											{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.data.totals.value, 'max': max }
-										];
-									});
-
-								wiaResultViz.selectAll('rect')
-								.data(d => d)
-								.join('rect')
-									.attr('fill', d => d.barColor)
-									.attr('x', (d, i) => ['0%', '25%', '55%', '80%'][i])
-									.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 20 + '%')
-									.attr('width', '20%')
-									.attr('height', d => d.value / d.max * 100 * 0.8 + '%');
-
-								wiaResultViz.selectAll('text')
-								.data(d => d)
-								.join('text')
-									.attr('fill', d => d.textColor)
-									.attr('text-anchor', 'middle')
-									.attr('x', (d, i) => ['10%', '35%', '65%', '90%'][i])
-									.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 17 + '%')
-									.text(d => designSettings[metricName + '_format'] !== 0 ? d3.format(designSettings[metricName + '_format'])(d.value) : null)
-									.each((d, i, nodes) => {
-										if (designSettings[metricName + '_format'] === 0) {
-											self.getFormattedValue(metricName, d.value).then(result => {
-												d3.select(nodes[i]).text(result);
+									kpiVizPie.append('defs').append('clipPath')
+										.attr('id', d => d[1].clipId)
+										.append('path')
+											.attr('d', d => {
+												var angle = (d[1].value / d[0].value * 360 - 90) * Math.PI / 180;
+												var largeArc = d[1].value / d[0].value > 0.5 ? 1 : 0;
+												return [
+													'M 32.5 32.5',
+													'L 32.5 0',
+													'A 32.5 32.5 0 ' + largeArc + ' 1 ' + (32.5 + 32.5 * Math.cos(angle)) + ' ' + (32.5 + 32.5 * Math.sin(angle)),
+													'z'
+												].join(' ');
 											});
-										}
-									});
 
-								wiaResultViz.append('text')
-									.attr('class', 'arrowText')
-									.attr('text-anchor', 'middle')
-									.attr('x', '50%')
-									.attr('y', '60%')
-									.text(String.fromCharCode(0x25ba));
+									kpiVizPie.selectAll('circle')
+									.data(d => d)
+									.join('circle')
+										.attr('fill', 'none')
+										.attr('stroke', d => d.barColor)
+										.attr('clip-path', (d, i) => [null, 'url(#' + d.clipId + ')'][i])
+										.attr('cx', '32.5')
+										.attr('cy', '32.5')
+										.attr('r', '26.5');
 
-			// Insights creation done - make them visible!
-				if (designSettings[metricName + '_format'] !== 0 && designSettings[denomMetricName + '_format'] !== 0 &&  designSettings[numMetricName + '_format'] !== 0) {
-					loader.transition().style('opacity', 0)
-					.end().then(() => loader.remove());
-					insightsNote.transition().style('opacity', 1);
-					insights.transition().style('opacity', 1);
-				}
-				else {
-					setTimeout(() => {
-						loader.transition().style('opacity', 0)
-						.end().then(() => loader.remove());
-						insightsNote.transition().style('opacity', 1);
-						insights.transition().style('opacity', 1);
-					}, 1500);
-				}
+									kpiVizPie.selectAll('text')
+									.data(d => d)
+									.join('text')
+										.attr('fill', d => d.textColor)
+										.attr('font-size', '9.9')
+										.attr('text-anchor', 'middle')
+										.attr('x', '32.5')
+										.attr('y', (d, i) => ['42.5', '30.5'][i])
+										.text(d => designSettings[d.metricName + '_format'] !== 0 ? d3.format(designSettings[d.metricName + '_format'])(d.value) : null)
+										.each((d, i, nodes) => {
+											if (designSettings[d.metricName + '_format'] === 0) {
+												getFormattedValue(d.metricName, d.value).then(result => {
+													d3.select(nodes[i]).text(result);
+												});
+											}
+										});
 
-	},
-	'filterInsightsList': function() {
-		// Function to filter out displayed insights
-			var type = d3.select('#selectType').node().selectedOptions[0].value;
-			var dimension = d3.select('#selectDimensions').node().selectedOptions[0].value;
-			var positive = d3.select('#selectPos').node().selectedOptions[0].value;
-			var factor = d3.select('#selectFactor').node().selectedOptions[0].value;
+							// Create the visualisations for change-driver insights
+								// Create the division sections
+									var wiaDivisions = insightViz.filter(x => x.analysisType == 'WIA').selectAll('div')
+									.data(d => { return [
+										{ 'name': numMetricName,
+											'current': d.data.numeratorValue,
+											'currentTotal': d.data.totals.numeratorValue,
+											'compare': d.comparedData.numeratorValue,
+											'compareTotal': d.comparedData.totals.numeratorValue },
+										{ 'name': denomMetricName,
+											'current': d.data.denominatorValue,
+											'currentTotal': d.data.totals.denominatorValue,
+											'compare': d.comparedData.denominatorValue,
+											'compareTotal': d.comparedData.totals.denominatorValue }
+									]; })
+									.join('div')
+										.attr('class', 'wiaDivisions');
 
-			d3.selectAll('.insight')
-			.style('display', null)
-			.filter(x => {
-				var typeCheck = true;
-				if (type == 'KPI' && type != 'All') {
-					typeCheck = x.analysisType == type;
-				}
-				else if (type != 'All') {
-					typeCheck = x.analysisSubType == type;
-				}
+									// Create the judgment text
+										var wiaDivisionsVizDesc = wiaDivisions.append('div')
+											.attr('class', 'wiaVizDesc');
 
-				var dimCheck = true;
-				if (dimension != 'All') {
-					dimCheck = x.dimensions.hasOwnProperty(dimension);
-				}
+										var wiaDivisionsNewSegments = wiaDivisionsVizDesc.filter(d => d.current === 0 || d.compare === 0);
 
-				var posCheck = true;
-				if (positive != 'All' && positive == 'Positive') {
-					posCheck = x.positive === true;
-				}
-				else if (positive != 'All' && positive == 'Negative') {
-					posCheck = x.positive === false;
-				}
+										wiaDivisionsNewSegments.append('span')
+											.attr('class', 'metricName')
+											.text(d => designSettings[d.name]);
 
-				var factorCheck = true;
-				if (factor != 'All' && factor == 'Single') {
-					factorCheck = Object.keys(x.dimensions).length === 1;
-				}
-				else if (factor != 'All' && factor == 'Combo') {
-					factorCheck = Object.keys(x.dimensions).length > 1;
-				}
+										wiaDivisionsNewSegments.append('span')
+											.attr('class', 'metricDesc')
+											.text(d => (d.current === 0 ? ' stopped' : ' started') + ' delivering.');
 
-				if (typeCheck && dimCheck && posCheck && factorCheck) {
-					return false;
-				}
-				else {
-					return true;
-				}
-			})
-			.style('display', 'none');
-	},
-	'filterBotResult': function(botResult) {
-		// Function to remove remove hidden insights
-			botResult.insights = botResult.insights.filter(insight => {
-				var choice = true;
-				botResult.hiddenInsightsCriteria.forEach(criterion => {
-					if (insight.analysisType == criterion.type &&
-							insight.analysisSubType == criterion.subType &&
-							JSON.stringify(insight.dimensions) == JSON.stringify(criterion.dimensions)) {
-								choice = false;
-							}
-				});
-				return choice;
-			});
+										var wiaDivisionsOtherSegments = wiaDivisionsVizDesc.filter(x => x.current !== 0 && x.compare !== 0);
 
-			return botResult;
-	},
-	'formatDate': function(date) {
-		return date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' });
-	},
-	'enDash': function() {
-		return ' ' + String.fromCharCode(0x2013) + ' ';
-	},
-	'initialize': function() {
-		// Set some local and global variables
-			var self = this,
-				settings = [],
-				botResults;
+										wiaDivisionsOtherSegments.append('span')
+											.attr('class', 'metricName')
+											.text(d => designSettings[d.name]);
 
-			prefs = typeof prefs == 'undefined' ? {} : prefs;
-			formatNames = typeof formatNames == 'undefined' ? function(x) { return x; } : formatNames;
-			botList = null;
-			bots = null;
-			loaded = null;
+										wiaDivisionsOtherSegments.append('span')
+											.attr('class', 'metricDesc')
+											.text(d => (d.current > d.compare ? ' increased' : ' decreased') + ' by ' + d3.format(designSettings.percent_format)((d.current - d.compare) / d.compare) + '.');
+
+									// Create the change visualisations
+										wiaDivisionsViz = wiaDivisions.append('svg')
+											.attr('class', 'wiaViz')
+											.datum(d => {
+												var max = d3.max([d.compareTotal, d.currentTotal]);
+												return [
+													{ 'name': d.name, 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.compareTotal, 'max': max, 'textShift': 0 },
+													{ 'name': d.name, 'barColor': designSettings.foregroundDimension, 'textColor': d.compareTotal / max - d.compare / max < 0.2 ? designSettings.foregroundTextContrast : designSettings.foregroundText, 'value': d.compare, 'max': max, 'textShift': d.compareTotal / max - d.compare / max < 0.2 ? 20 : 0 },
+													{ 'name': d.name, 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.currentTotal, 'max': max, 'textShift': 0 },
+													{ 'name': d.name, 'barColor': designSettings.foregroundDimension, 'textColor': d.currentTotal / max - d.current / max < 0.2 ? designSettings.foregroundTextContrast : designSettings.foregroundText, 'value': d.current, 'max': max, 'textShift': d.currentTotal / max - d.current / max < 0.2 ? 20 : 0 }
+												];
+											});
+
+										wiaDivisionsViz.selectAll('rect')
+										.data(d => d)
+										.join('rect')
+											.attr('fill', d => d.barColor)
+											.attr('x', (d, i) => ['0%', '0%', '60%', '60%'][i])
+											.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 20 + '%')
+											.attr('width', '40%')
+											.attr('height', d => d.value / d.max * 100 * 0.8 + '%');
+
+										wiaDivisionsViz.selectAll('text')
+										.data(d => d)
+										.join('text')
+											.attr('fill', d => d.textColor)
+											.attr('text-anchor', 'middle')
+											.attr('x', (d, i) => ['20%', '20%', '80%', '80%'][i])
+											.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 17 + d.textShift + '%')
+											.text(d => designSettings[d.name + '_format'] !== 0 ? d3.format(designSettings[d.name + '_format'])(d.value) : null)
+											.each((d, i, nodes) => {
+												if (designSettings[d.name + '_format'] === 0) {
+													getFormattedValue(d.name, d.value).then(result => {
+														d3.select(nodes[i]).text(result);
+													});
+												}
+											});
+
+										wiaDivisionsViz.append('text')
+											.attr('class', 'arrowText')
+											.attr('text-anchor', 'middle')
+											.attr('x', '50%')
+											.attr('y', '60%')
+											.text(String.fromCharCode(0x25ba));
+
+								// Create the result section
+									var wiaResult = insightViz.filter(x => x.analysisType == 'WIA').append('div')
+										.attr('class', 'wiaResult');
+
+									// Create the judgment text
+										var wiaResultVizDesc = wiaResult.append('div')
+											.attr('class', 'wiaVizDesc');
+
+										var wiaResultNewSegments = wiaResultVizDesc.filter(x => x.comparedData.value === 0 || x.data.value === 0);
+
+										wiaResultNewSegments.append('span')
+											.attr('class', 'metricDesc')
+											.text('Segment ');
+
+										wiaResultNewSegments.append('span')
+											.attr('class', 'metricName')
+											.text(d => d.comparedData.value === 0 ? 'is new' : 'stopped');
+
+										wiaResultNewSegments.append('span')
+											.attr('class', 'metricDesc')
+											.text(d => ' and is performing ' + (d.positive ? 'well.' : 'badly.'));
+
+										var wiaResultOtherSegments = wiaResultVizDesc.filter(x => x.comparedData.value !== 0 && x.data.value !== 0);
+
+										wiaResultOtherSegments.append('span')
+											.attr('class', 'metricName')
+											.text(d => designSettings[metricName]);
+
+										wiaResultOtherSegments.append('span')
+											.attr('class', 'metricDesc')
+											.text(d => ((d.data.value > d.comparedData.value) ? ' increased': ' decreased') + ' by ' + d3.format(designSettings.percent_format)((d.data.value - d.comparedData.value) / d.comparedData.value) + '.');
+
+									// Create the result visualisation
+										var wiaResultViz = wiaResult.append('svg')
+											.attr('class', 'wiaViz')
+											.datum(d => {
+												var max = d3.max([d.comparedData.value, d.comparedData.totals.value, d.data.value, d.data.totals.value]);
+												return [
+													{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'value': d.comparedData.value, 'max': max },
+													{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.comparedData.totals.value, 'max': max },
+													{ 'barColor': designSettings.foregroundDimension, 'textColor': designSettings.foregroundText, 'value': d.data.value, 'max': max },
+													{ 'barColor': designSettings.backgroundDimension, 'textColor': designSettings.backgroundText, 'value': d.data.totals.value, 'max': max }
+												];
+											});
+
+										wiaResultViz.selectAll('rect')
+										.data(d => d)
+										.join('rect')
+											.attr('fill', d => d.barColor)
+											.attr('x', (d, i) => ['0%', '25%', '55%', '80%'][i])
+											.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 20 + '%')
+											.attr('width', '20%')
+											.attr('height', d => d.value / d.max * 100 * 0.8 + '%');
+
+										wiaResultViz.selectAll('text')
+										.data(d => d)
+										.join('text')
+											.attr('fill', d => d.textColor)
+											.attr('text-anchor', 'middle')
+											.attr('x', (d, i) => ['10%', '35%', '65%', '90%'][i])
+											.attr('y', d => (1 - d.value / d.max) * 100 * 0.8 + 17 + '%')
+											.text(d => designSettings[metricName + '_format'] !== 0 ? d3.format(designSettings[metricName + '_format'])(d.value) : null)
+											.each((d, i, nodes) => {
+												if (designSettings[metricName + '_format'] === 0) {
+													getFormattedValue(metricName, d.value).then(result => {
+														d3.select(nodes[i]).text(result);
+													});
+												}
+											});
+
+										wiaResultViz.append('text')
+											.attr('class', 'arrowText')
+											.attr('text-anchor', 'middle')
+											.attr('x', '50%')
+											.attr('y', '60%')
+											.text(String.fromCharCode(0x25ba));
+
+					// Insights creation done - make them visible!
+						if (designSettings[metricName + '_format'] !== 0 && designSettings[denomMetricName + '_format'] !== 0 &&  designSettings[numMetricName + '_format'] !== 0) {
+							loader.transition().style('opacity', 0)
+							.end().then(() => loader.remove());
+							insightsNote.transition().style('opacity', 1);
+							insights.transition().style('opacity', 1);
+						}
+						else {
+							setTimeout(() => {
+								loader.transition().style('opacity', 0)
+								.end().then(() => loader.remove());
+								insightsNote.transition().style('opacity', 1);
+								insights.transition().style('opacity', 1);
+							}, 1500);
+						}
+			}
+
+		// Set some variables
+			var options = [],
+				designSettings,
+				botResults,
+				prefs = typeof prefs == 'undefined' ? {} : prefs, // Handles legacy prefs
+				formatNames = typeof formatNames == 'undefined' ? function(x) { return x; } : formatNames, // Handles legacy prefs
+				botList,
+				searchContainer,
+				bots,
+				loaded;
 
 		// Create the document structure
 			var emiTitle = d3.select('#__da-app-content').append('div')
@@ -952,8 +993,8 @@ var emiExplorer = {
 					.join('path')
 						.attr('d', d => { return d; });
 
-			emiTitle.append('span')
-				.text('Einstein Marketing Insights');
+			var emiTitleName = emiTitle.append('span')
+				.style('opacity', 0);
 
 			mainView = d3.select('#__da-app-content').append('div')
 				.attr('id', 'mainView');
@@ -970,28 +1011,51 @@ var emiExplorer = {
 				.style('position', 'absolute')
 				.style('display', 'none');
 
-		// Get the bot list, then set settings according to the data
-			self.getBotList().then(x => {
+		// Get the bot list, then set options according to the data
+			getBotList().then(x => {
+				if (x.bots.length === 0) {
+					d3.select('#__da-app-content').html(null);
+
+					d3.select('#__da-app-content').append('h1')
+					.text('No bots.');
+
+					d3.select('#__da-app-content').append('p')
+					.text('To populate this widget with data, go to Analyze & Act and set up your first Einstein Marketing Insights bot.');
+
+					javascriptAbort(); // Garbage meaningless function to get the widget to stop processing
+				}
+
 				botList = x;
 				botList.bots.sort((a, b) => a.name.localeCompare(b.name));
-				settings = settings.concat([
+				options = options.concat([
 					{ 'type': 'title',
 						'displayName': 'Explorer Configuration' },
+					{ 'type': 'input',
+						'id': 'titleName',
+						'displayName': 'Explorer Title',
+						'defaultValue': 'Einstein Marketing Insights',
+						'description': 'Replaces the name after the EMI logo.' },
 					{ 'type': 'select',
 						'id': 'initialView',
 						'displayName': 'Initial View',
 						'options': [{ 'id': 'botSelect', 'label': 'Bot Selection'}].concat(botList.bots.map(x => { return { 'id': x.id, 'label': 'Insights for ' + x.name + ' (ID ' + x.id + ')' }; })),
 						'defaultValue': prefs?.loadDefaultBot?.botId ?? 'botSelect' },
 					{ 'type': 'checkbox',
-					  'id': 'botRestriction',
-					  'displayName': 'Bots to Display',
-					  'options': botList.bots.map(x => { return { 'id': x.id, 'label': x.name + ' (ID ' + x.id + ')', 'defaultValue': prefs?.restrictToBots?.includes(x.id) || prefs?.restrictToBots?.length === 0 || JSON.stringify(prefs) === '{}' ? true : false }; })},
-					{ 'type': 'checkbox',
 					  'id': 'botLocked',
 					  'displayName': 'Lock to this Bot',
-					  'description': 'If checked, there will be no back button in the insights list, which allows users to return to bot selection.',
-					  'options': [{ 'id': 0, 'label': 'Locked', 'defaultValue': false }]},
+					  'description': 'If checked, there will be no back button in the insights list, which would allow users to return to bot selection.',
+					  'options': [{ 'id': 0, 'label': 'Locked', 'defaultValue': false }] },
+					{ 'type': 'checkbox',
+					  'id': 'botRestriction',
+					  'displayName': 'Bots to Display',
+					  'options': botList.bots.map(x => { return { 'id': x.id, 'label': x.name + ' (ID ' + x.id + ')', 'defaultValue': prefs?.restrictToBots?.includes(x.id) || prefs?.restrictToBots?.length === 0 || JSON.stringify(prefs) === '{}' ? true : false }; }),
+					  'description': 'In the bot selection menu, show only bots that are checked in this list. Use this to hide bots that are irrelevant to this use case.' },
 					{ 'type': 'separator' },
+					{ 'type': 'input',
+						'id': 'insightsLimit',
+						'displayName': 'Maximum Insights to Show',
+						'defaultValue': '',
+						'description': 'Limits the number of insights shown in the list.' },
 					{ 'type': 'title',
 					  'displayName': 'Visualisation Colours' },
 					{ 'type': 'colorPicker',
@@ -1016,19 +1080,45 @@ var emiExplorer = {
 					  'description': 'Changes the colour of foreground text when it\'s laid over a foreground dimension.',
 					  'defaultValue': '#ffffff' }
 				]);
-				self.setDesignSettings(settings);
+				setDesignOptions(options);
 
 		// Get the settings, then get bot results
-				return self.getDesignSettings();
-			}).then(designSettings => {
-				if (designSettings.botLocked_0 !== true || designSettings.initialView == 'botSelect') {
-					return Promise.all(botList.bots.map(x => self.getBotResults(x.id)));
-				}
-				else {
-					return Promise.all([self.getBotResults(designSettings.initialView)]);
-				}
+				return getDesignSettings();
+			}).then(x => {
+				designSettings = x;
+
+				// Replace title with settings
+					emiTitleName.text(designSettings.titleName)
+					.transition().style('opacity', 1);
+
+				// Filter botList to only those shown, and edit initialView accordingly (as long as not all have been removed)
+					if (Object.entries(designSettings).filter(x => x[0].startsWith('botRestriction') && x[1] === true).length > 0) {
+						botList.bots = botList.bots.filter(x => designSettings['botRestriction_' + x.id]);
+						var initialViewIndex = options.map(x => x.id).indexOf('initialView');
+						options[initialViewIndex].options = [{ 'id': 'botSelect', 'label': 'Bot Selection'}].concat(botList.bots.map(x => { return { 'id': x.id, 'label': 'Insights for ' + x.name + ' (ID ' + x.id + ')' }; }));
+					}
+
+				// Delete 'botLocked' if initial view is set to 'Bot Selection'
+					if (designSettings.initialView == 'botSelect') {
+						var botLockedIndex = options.map(x => x.id).indexOf('botLocked');
+						options.splice(botLockedIndex, 1);
+					}
+
+				// Get bot results
+					if (designSettings.botLocked_0 !== true || designSettings.initialView == 'botSelect') {
+						return Promise.all(botList.bots.map(x => getBotResults(x.id)));
+					}
+					else {
+						return Promise.all([getBotResults(designSettings.initialView)]);
+					}
 			}).then(x => {
 				botResults = x;
+				botResults.forEach(botResult => {
+					botResult = filterBotResult(botResult); // Immediately remove hidden insights
+					if (parseInt(designSettings.insightsLimit) > 0) {
+						botResult.insights = botResult.insights.slice(0, parseInt(designSettings.insightsLimit));
+					}
+				});
 
 		// Get the details for all fields
 				return Promise.all(
@@ -1038,24 +1128,34 @@ var emiExplorer = {
 					Array.from(new Set(
 						botResults.map(x => x.insights.map(x => Object.keys(x.dimensions)).flat()).flat()
 					)).sort()).map(x => {
-						return self.getFieldDetails(x);
+						return getFieldDetails(x);
 					})
 				);
 
-		// Set the display name and locale settings
+		// Set the display name and locale options
 			}).then(fields => {
-				settings = settings.concat([
+				options = options.concat([
 					{ 'type': 'separator' },
 					{ 'type': 'title',
 						'displayName': 'Text Replacement' }
 				]).concat(
+					botList.bots.map(x => {
+						return {
+							'type': 'input',
+							'id': 'botName_' + x.id,
+							'displayName': 'Bot name ' + x.name,
+							'defaultValue': x.name,
+							'description': 'Enter the value with which to replace bot name ' + x.name + '.'
+						}
+					})
+				).concat(
 					Array.from(new Set(
 						botResults.map(x => {
 							return x.insightsBotResultConfig.analysisConfigs.map(x => {
 								return x.analysisType == 'KPI' ? x.analysisType : x.analysisSubType
 							})
 						}).flat()
-					)).sort((a, b) => self.sortInsightTypes(a) - self.sortInsightTypes(b)).map(x => {
+					)).sort((a, b) => sortInsightTypes(a) - sortInsightTypes(b)).map(x => {
 						return {
 							'type': 'input',
 							'id': x,
@@ -1070,8 +1170,8 @@ var emiExplorer = {
 							'type': 'input',
 							'id': x.systemName,
 							'displayName': x.systemName,
-							'defaultValue': formatNames(x.systemName) == x.systemName ? x.name : formatNames(x.systemName),
-							'description': 'Enter the value with which to replace ' + x.systemName + '.'
+							'defaultValue': formatNames(x.systemName) == x.systemName ? x.name : formatNames(x.systemName), // Handles legacy prefs
+							'description': 'Enter the value with which to replace ' + x.systemName + '. Default name: ' + x.name + '.'
 						}
 					})
 				).concat(
@@ -1081,43 +1181,43 @@ var emiExplorer = {
 					{ 'type': 'input',
 						'id': 'localeDecimal',
 						'displayName': 'Decimal point for your locale',
-						'defaultValue': d3.format(',.1f')(0.1).substr(1, 1) }, // Sticky legacy setting
+						'defaultValue': d3.format(',.1f')(0.1).substr(1, 1) }, // Handles legacy prefs
 					{ 'type': 'input',
 						'id': 'localeThousands',
 						'displayName': 'Thousands separator for your locale',
-						'defaultValue': d3.format(',.0f')(1000).substr(1, 1) }, // Sticky legacy setting
+						'defaultValue': d3.format(',.0f')(1000).substr(1, 1) }, // Handles legacy prefs
 					{ 'type': 'input',
 						'id': 'localeCurrencyPrefix',
 						'displayName': 'Currency prefix for your locale',
-						'defaultValue': d3.format('$,.0f')(1).substr(0, 1) }, // Sticky legacy setting
+						'defaultValue': d3.format('$,.0f')(1).substr(0, 1) }, // Handles legacy prefs
 					{ 'type': 'input',
 						'id': 'localeCurrencySuffix',
 						'displayName': 'Currency suffix for your locale',
 						'defaultValue': '' }
 				);
-				self.setDesignSettings(settings);
+				setDesignOptions(options);
 
-		// Get the locale settings, then set finally set measurement format settings
-				return self.getDesignSettings();
+		// Get the locale settings, then set finally set measurement format options
+				return getDesignSettings();
 			}).then(designSettings => {
 				d3.formatDefaultLocale({
-				'decimal': designSettings.localeDecimal,
-				'thousands': designSettings.localeThousands,
-				'grouping': [3],
-				'currency': [designSettings.localeCurrencyPrefix, designSettings.localeCurrencySuffix],
-				'numerals': ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
-				'percent': '%',
-				'minus': '-',
-				'nan': 'NaN'
-			});
+					'decimal': designSettings.localeDecimal,
+					'thousands': designSettings.localeThousands,
+					'grouping': [3],
+					'currency': [designSettings.localeCurrencyPrefix, designSettings.localeCurrencySuffix],
+					'numerals': ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+					'percent': '%',
+					'minus': '-',
+					'nan': 'NaN'
+				});
 
 				function metricFormatOptions(value) {
 					return [{ 'id': 0, 'label': 'System Default (Slow)' }].concat([',.0f', ',.1f', ',.2f', ',.3s', '$,.0f', '$,.1f', '$,.2f', '$,.3s', ',.0%', ',.1%', ',.2%', ',.3%', ',.4%'].map(f => {
-						return { 'id': f, 'label': d3.format(f)(value) };
+						return { 'id': f, 'label': d3.format(f)(value) + ' (Static example: ' + d3.format(f)(1234.56) + ')' };
 					}));
 				}
 
-				settings = settings.concat(
+				options = options.concat(
 					{ 'type': 'select',
 						'id': 'percent_format',
 						'displayName': 'Percent format',
@@ -1148,18 +1248,19 @@ var emiExplorer = {
 						}
 					})
 				);
-				self.setDesignSettings(settings);
+				setDesignOptions(options);
 
 		// Get the final settings, then load
-				return self.getDesignSettings();
+				return getDesignSettings();
 			}).then(x => {
 				designSettings = x;
 
 				if (designSettings.initialView == 'botSelect') {
-					self.createBots(botList, botResults);
+					createBots(botList, botResults);
 				}
 				else {
-					self.createInsights(botResults[0])
+					selectedBotIndex = botList.bots.map(x => x.id).indexOf(designSettings.initialView);
+					createInsights(botResults[selectedBotIndex]);
 				}
 			});
 	}

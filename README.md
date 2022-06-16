@@ -10,22 +10,26 @@ Add `emiExplorer.initialize();` to the JS section of the Custom Widget Editor, a
 
 Script dependencies (must be loaded in this order):
 1. `https://d3js.org/d3.v5.min.js`
-2. `https://dato-custom-widgets-js-css.s3.eu-west-2.amazonaws.com/einstein-explorer/Einstein+Explorer.js`
+2. `https://solutions.datorama-res.com/public_storage_solutions/emiExplorer/v1/emiExplorer.js`
 
 Style depenency:
-1. `https://dato-custom-widgets-js-css.s3.eu-west-2.amazonaws.com/einstein-explorer/Einstein+Explorer.css`
+1. `https://solutions.datorama-res.com/public_storage_solutions/emiExplorer/v1/emiExplorer.css`
 
 ## Preferences
 All configuration options are located in the widget's design panel.
 
 These include options for
+* title;
 * which view to initially load;
-* bot restrictions;
 * bot locking;
+* bot restrictions;
+* maximum insights to show;
 * visualisation colours;
 * name replacement;
 * locale settings; and
 * metric formatting.
+
+When setting preferences, the widget will reload after every selection. Please have patience with this.
 
 ## Recommended Configuration
 ### Style
@@ -47,4 +51,4 @@ These include options for
 ```
 
 ### Performance
-To eliminate usage of the value format API and greatly improve performance, set your locale and choose pre-defined measurement formats from the widget design panel for all measurements.
+To eliminate usage of the value format API and greatly improve loading speed, set your locale and choose pre-defined measurement formats from the widget design panel for all measurements.

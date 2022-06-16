@@ -40,7 +40,7 @@ body {
 
 #tooltip {
 	pointer-events: none;
-	max-width: 155px;
+	max-width: 175px;
 	transform: translateX(2ch);
 	transform-origin: center center;
 	background-color: rgb(var(--border-light));
@@ -60,13 +60,58 @@ body {
 	border-radius: 0 0 9px 9px;
 }
 
+#mainContent {
+	flex: 1 1 1px;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	overflow: scroll;
+}
+
+#search-container {
+	flex: 1 1 100%;
+	margin: 16px 16px 0 16px;
+	box-sizing: border-box;
+	font-size: 1.2em;
+	color: rgb(var(--text-light));
+}
+
+#search-box {
+	background-color: rgb(253, 253, 253);
+	border: 1px solid rgb(var(--border-light));
+	border-radius: 10em;
+	width: 250px;
+	padding: 0.25em 0.5em;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 0.25em;
+}
+
+#search-icon {
+	flex: 0 0 0.8em;
+	height: 0.8em;
+	fill: rgb(var(--text-light));
+}
+
+#search-input {
+	flex: 1 1 auto;
+	background-color: transparent;
+	border: none;
+}
+
+#search-input:focus {
+	outline: none;
+}
+
 .bot {
 	position: relative;
 	display: inline-flex;
 	flex-direction: column;
-	vertical-align: top;
-	width: 200px;
+	flex: 0 0 200px;
 	height: 150px;
+	overflow: hidden;
 	color: rgb(var(--text-light));
 	background-color: rgb(253, 253, 253);
 	margin: 16px;
@@ -165,7 +210,9 @@ body {
 #headerExit {
 	stroke: rgb(var(--text-verylight));
 	flex: 0 0 1.2em;
+	height: 100%;
 	padding-top: 2px;
+	box-sizing: border-box;
 	margin-right: 1em;
 	cursor: pointer;
 }
@@ -267,14 +314,6 @@ body {
 	white-space: nowrap;
 }
 
-#mainContent {
-	flex: 1 1 1px;
-	display: flex;
-	flex-direction: row;
-	flex-wrap: wrap;
-	overflow: scroll;
-}
-
 #insightsNote {
 	flex: 0 0 100%;
 	padding: 5px calc(10px + 1em) 0 calc(10px + 1em);
@@ -301,10 +340,12 @@ body {
 
 .insight.kpi {
 	flex: 1 0 200px;
+	max-width: 400px;
 }
 
 .insight.wia {
 	flex: 1 0 calc(400px + 20px + 2em);
+	max-width: calc(800px + 40px + 4em);
 }
 
 .insight .positive {
