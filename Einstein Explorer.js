@@ -636,8 +636,8 @@ var emiExplorer = {
 												return (d.positive === true ? 'Over-performing' : 'Under-performing') + ' segment';
 											case 'WIA':
 												return d.positive === true
-													? 'Caused ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'an increase' : 'a decrease') + ' of overall ' + designSettings[metricName]
-													: 'Caused ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'a decrease' : 'an increase') + ' of overall ' + designSettings[metricName];
+													? 'Contributed to ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'higher' : 'lower') + ' overall ' + designSettings[metricName]
+													: 'Contributed to ' + (botResult.insightsBotResultConfig.expectIncreasingTrend === true ? 'lower' : 'higher') + ' overall ' + designSettings[metricName];
 										}
 									});
 
